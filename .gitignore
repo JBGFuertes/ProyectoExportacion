@@ -19,7 +19,7 @@ __pycache__/
 *.env
 .env.*
 
-# VS Code
+# VS Code 
 .vscode/
 
 # Django static files (si los generas)
