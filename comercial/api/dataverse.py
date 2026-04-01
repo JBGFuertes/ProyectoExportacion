@@ -33,3 +33,17 @@ class DataverseClient:
     def get_historial_cliente(self, cliente_id):
         """Obtiene el historial de incidencias de un cliente."""
         raise NotImplementedError
+
+    def update_gravedades_productos(self, incidencia_id, productos):
+        """
+        Actualiza la gravedad de los productos de una incidencia.
+
+        :param incidencia_id: ID de la incidencia en Dataverse
+        :param productos: lista de dicts con {'codigo': str, 'gravedad': str}
+        """
+        # TODO: implementar con el nombre real de la entidad y columnas de Dataverse
+        # Ejemplo orientativo:
+        # for p in productos:
+        #     product_record_id = self._buscar_producto(incidencia_id, p['codigo'])
+        #     self._patch(f"/cr_productos({product_record_id})", {"cr_gravedad": p['gravedad']})
+        raise NotImplementedError

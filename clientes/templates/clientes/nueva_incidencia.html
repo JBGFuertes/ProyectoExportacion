@@ -1,0 +1,163 @@
+{% extends 'clientes/base.html' %}
+
+{% block title %}Nueva Incidencia{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-9">
+
+        {% if enviado %}
+        <div class="card shadow-sm text-center p-5">
+            <i class="bi bi-check-circle-fill text-success fs-1 mb-3"></i>
+            <h4 class="fw-bold">Incidencia registrada</h4>
+            <p class="text-muted">Hemos recibido tu incidencia. En breve nos pondremos en contacto contigo.</p>
+            <div class="d-flex gap-2 justify-content-center mt-3">
+                <a href="{% url 'clientes:nueva_incidencia' %}" class="btn btn-outline-dark">Registrar otra</a>
+                <a href="{% url 'clientes:mis_incidencias' %}" class="btn btn-dark">Ver mis incidencias</a>
+            </div>
+        </div>
+
+        {% else %}
+        <form method="post" id="form-incidencia">
+            {% csrf_token %}
+
+            <!-- SECCIÓN 1: Identificación -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-dark text-white">
+                    <i class="bi bi-person-badge"></i> Identificación
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nombre de su empresa <span class="text-danger">*</span></label>
+                            <input type="text" name="empresa" class="form-control" value="{{ identificacion.empresa }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Correo electrónico <span class="text-danger">*</span></label>
+                            <input type="email" name="correo" class="form-control" value="{{ identificacion.correo }}" required>
+                        </div>
+                        <input type="hidden" name="conversation_id" value="{{ identificacion.conversation_id }}">
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 2: Productos -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-box-seam"></i> Productos afectados</span>
+                    <button type="button" class="btn btn-outline-light btn-sm" onclick="añadirProducto()">
+                        <i class="bi bi-plus-circle"></i> Añadir producto
+                    </button>
+                </div>
+                <div class="card-body p-4">
+                    <div id="contenedor-productos">
+                        {% for p in productos %}
+                        <div class="producto-fila border rounded p-3 mb-3 position-relative" data-index="{{ forloop.counter0 }}">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <strong class="text-muted">Producto {{ forloop.counter }}</strong>
+                                {% if forloop.counter > 1 %}
+                                <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarProducto(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                {% else %}
+                                <button type="button" class="btn btn-outline-danger btn-sm invisible" onclick="eliminarProducto(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label class="form-label">Código producto</label>
+                                    <input type="text" name="p{{ forloop.counter0 }}_codigo" class="form-control" value="{{ p.codigo }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Producto</label>
+                                    <input type="text" name="p{{ forloop.counter0 }}_nombre" class="form-control" value="{{ p.nombre }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Lote</label>
+                                    <input type="text" name="p{{ forloop.counter0 }}_lote" class="form-control" value="{{ p.lote }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Cantidad afectada</label>
+                                    <input type="number" name="p{{ forloop.counter0 }}_cantidad" class="form-control" value="{{ p.cantidad }}" min="1">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Albarán</label>
+                                    <input type="text" name="p{{ forloop.counter0 }}_albaran" class="form-control" value="{{ p.albaran }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Fecha de recibimiento</label>
+                                    <input type="date" name="p{{ forloop.counter0 }}_fecha" class="form-control" value="{{ p.fecha }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Problema</label>
+                                    <input type="text" name="p{{ forloop.counter0 }}_problema" class="form-control" value="{{ p.problema }}" placeholder="Describe brevemente el problema">
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-dark">
+                    <i class="bi bi-send"></i> Enviar incidencia
+                </button>
+                <a href="{% url 'clientes:portal' %}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var contadorProductos = document.querySelectorAll('.producto-fila').length;
+
+function actualizarNumeros() {
+    document.querySelectorAll('.producto-fila').forEach(function(fila, idx) {
+        fila.querySelector('strong').textContent = 'Producto ' + (idx + 1);
+        fila.querySelectorAll('input').forEach(function(input) {
+            input.name = input.name.replace(/^p\d+_/, 'p' + idx + '_');
+        });
+        // El primero no puede borrarse
+        var btnEliminar = fila.querySelector('button[onclick="eliminarProducto(this)"]');
+        if (idx === 0) btnEliminar.classList.add('invisible');
+        else btnEliminar.classList.remove('invisible');
+    });
+    contadorProductos = document.querySelectorAll('.producto-fila').length;
+}
+
+function añadirProducto() {
+    var plantilla = `
+    <div class="producto-fila border rounded p-3 mb-3 position-relative">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <strong class="text-muted">Producto</strong>
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarProducto(this)">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3"><label class="form-label">Código producto</label><input type="text" name="pX_codigo" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">Producto</label><input type="text" name="pX_nombre" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">Lote</label><input type="text" name="pX_lote" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">Cantidad afectada</label><input type="number" name="pX_cantidad" class="form-control" min="1"></div>
+            <div class="col-md-3"><label class="form-label">Albarán</label><input type="text" name="pX_albaran" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">Fecha de recibimiento</label><input type="date" name="pX_fecha" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Problema</label><input type="text" name="pX_problema" class="form-control" placeholder="Describe brevemente el problema"></div>
+        </div>
+    </div>`;
+    document.getElementById('contenedor-productos').insertAdjacentHTML('beforeend', plantilla);
+    actualizarNumeros();
+}
+
+function eliminarProducto(btn) {
+    btn.closest('.producto-fila').remove();
+    actualizarNumeros();
+}
+</script>
+{% endblock %}

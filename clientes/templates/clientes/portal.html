@@ -1,0 +1,35 @@
+{% extends 'clientes/base.html' %}
+
+{% block title %}Portal de Clientes{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center text-center mb-5">
+    <div class="col-md-8">
+        <h1 class="fw-bold mb-3">¿En qué podemos ayudarte?</h1>
+        <p class="text-muted fs-5">Gestiona tus incidencias de forma rápida y sencilla.</p>
+    </div>
+</div>
+
+<div class="row g-4 justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow-sm h-100 text-center p-4">
+            <i class="bi bi-plus-circle-fill text-dark fs-1 mb-3"></i>
+            <h4 class="fw-bold">Registrar incidencia</h4>
+            <p class="text-muted">¿Has recibido un pedido con problemas? Cuéntanos qué ha pasado.</p>
+            <a href="{% url 'clientes:nueva_incidencia' %}" class="btn btn-dark mt-auto">
+                <i class="bi bi-plus-circle"></i> Nueva incidencia
+            </a>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card shadow-sm h-100 text-center p-4">
+            <i class="bi bi-search text-dark fs-1 mb-3"></i>
+            <h4 class="fw-bold">Consultar estado</h4>
+            <p class="text-muted">Introduce tu correo para ver el estado de tus incidencias.</p>
+            <a href="{% url 'clientes:mis_incidencias' %}" class="btn btn-dark mt-auto">
+                <i class="bi bi-search"></i> Ver mis incidencias
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
