@@ -3,13 +3,15 @@
 {% block title %}{{ incidencia.titulo }}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 <style>
     .select-gravedad { border-radius: 20px; font-size: .8rem; font-weight: 600; text-align: center; border: 2px solid transparent; transition: background-color .2s, color .2s; }
     .select-gravedad.gravedad-grave    { background-color: #dc3545; color: #fff; border-color: #dc3545; }
     .select-gravedad.gravedad-moderada { background-color: #ffc107; color: #212529; border-color: #ffc107; }
     .select-gravedad.gravedad-leve     { background-color: #6c757d; color: #fff; border-color: #6c757d; }
     .select-gravedad option { background-color: #fff; color: #212529; font-weight: normal; }
+    .grupo-grave    .card-header { background-color: #dc3545; color: #fff; }
+    .grupo-moderada .card-header { background-color: #ffc107; color: #212529; }
+    .grupo-leve     .card-header { background-color: #6c757d; color: #fff; }
 </style>
 {% endblock %}
 
@@ -20,7 +22,7 @@
     </a>
 </div>
 
-<!-- Cabecera incidencia -->
+<!-- Cabecera del ticket -->
 <div class="card shadow-sm mb-4">
     <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
         <span><i class="bi bi-file-earmark-text"></i> {{ incidencia.titulo }}</span>
@@ -51,8 +53,6 @@
                 <div><i class="bi bi-calendar"></i> {{ incidencia.fecha }}</div>
             </div>
         </div>
-
-        <!-- Botones de acción -->
         <div class="mt-4 d-flex gap-2">
             <button class="btn btn-danger" onclick="derivarCalidad()">
                 <i class="bi bi-exclamation-triangle"></i> Derivar a Calidad
@@ -64,63 +64,121 @@
     </div>
 </div>
 
-<!-- Productos -->
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-dark text-white">
-        <i class="bi bi-box-seam"></i> Productos de la incidencia
-    </div>
-    <div class="card-body">
-        {% if productos %}
-        <table id="tabla-productos" class="table table-hover align-middle w-100">
-            <thead class="table-secondary">
-                <tr>
-                    <th>Producto</th>
-                    <th>Código</th>
-                    <th>Cantidad</th>
-                    <th>Lote</th>
-                    <th>Albarán</th>
-                    <th>Problema</th>
-                    <th>Gravedad</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for p in productos %}
-                <tr>
-                    <td>{{ p.nombre }}</td>
-                    <td><code>{{ p.codigo }}</code></td>
-                    <td>{{ p.cantidad }}</td>
-                    <td>{{ p.lote }}</td>
-                    <td>{{ p.albaran }}</td>
-                    <td>{{ p.problema }}</td>
-                    <td>
-                        <select class="form-select form-select-sm select-gravedad"
-                                data-codigo="{{ p.codigo }}"
-                                data-original="{{ p.gravedad }}"
-                                style="min-width:110px">
-                            <option value="Leve"     {% if p.gravedad == 'Leve' %}selected{% endif %}>Leve</option>
-                            <option value="Moderada" {% if p.gravedad == 'Moderada' %}selected{% endif %}>Moderada</option>
-                            <option value="Grave"    {% if p.gravedad == 'Grave' %}selected{% endif %}>Grave</option>
-                        </select>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <div class="mt-3 d-flex align-items-center gap-3">
-            <button id="btn-guardar-gravedades" class="btn btn-primary d-none" onclick="guardarGravedades()">
-                <i class="bi bi-save"></i> Guardar cambios de gravedad
-            </button>
-            <span id="spinner-gravedades" class="d-none text-muted">
-                <span class="spinner-border spinner-border-sm"></span> Guardando...
-            </span>
+<!-- Grupos por gravedad -->
+{% if grupos %}
+    {% for grupo in grupos %}
+    <div class="card shadow-sm mb-4 grupo-{{ grupo.gravedad|lower }}">
+        <div class="card-header d-flex align-items-center gap-2">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <strong>Gravedad {{ grupo.gravedad }}</strong>
+            <span class="badge bg-white text-dark ms-1">{{ grupo.causas|length }} causa{{ grupo.causas|length|pluralize:"s" }}</span>
         </div>
-        {% else %}
-        <p class="text-muted text-center py-3">No hay productos registrados en esta incidencia.</p>
-        {% endif %}
-    </div>
-</div>
+        <div class="card-body">
 
-<!-- Toast confirmación -->
+            <!-- Causas y sus productos en una única tabla por grupo -->
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Producto</th>
+                            <th>Código</th>
+                            <th>Cantidad</th>
+                            <th>Lote</th>
+                            <th>Albarán</th>
+                            <th>Problema</th>
+                            <th>Gravedad</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for causa in grupo.causas %}
+                        <tr class="causa-item">
+                            <td colspan="7" class="py-2 bg-light">
+                                <i class="bi bi-tag-fill text-secondary me-1"></i>
+                                <span class="fw-bold causa-nombre">{{ causa.nombre }}</span>
+                            </td>
+                        </tr>
+                        {% for p in causa.productos %}
+                        <tr>
+                            <td>{{ p.nombre }}</td>
+                            <td><code>{{ p.codigo }}</code></td>
+                            <td>{{ p.cantidad }}</td>
+                            <td>{{ p.lote }}</td>
+                            <td>{{ p.albaran }}</td>
+                            <td>{{ p.problema }}</td>
+                            <td>
+                                <select class="form-select form-select-sm select-gravedad"
+                                        style="width:auto"
+                                        data-material-id="{{ p.id }}"
+                                        data-codigo="{{ p.codigo }}"
+                                        data-original="{{ grupo.gravedad }}">
+                                    <option value="Leve"     {% if p.gravedad == 'Leve' %}selected{% endif %}>Leve</option>
+                                    <option value="Moderada" {% if p.gravedad == 'Moderada' %}selected{% endif %}>Moderada</option>
+                                    <option value="Grave"    {% if p.gravedad == 'Grave' %}selected{% endif %}>Grave</option>
+                                </select>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Botón guardar gravedades (aparece al cambiar cualquier producto del grupo) -->
+            <div class="mb-3 d-flex align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-primary btn-guardar-grupo d-none"
+                        data-gravedad="{{ grupo.gravedad }}"
+                        onclick="guardarGravedadesGrupo('{{ grupo.gravedad }}')">
+                    <i class="bi bi-save"></i> Guardar cambios de gravedad
+                </button>
+                <span class="spinner-guardar-{{ grupo.gravedad|lower }} d-none text-muted">
+                    <span class="spinner-border spinner-border-sm"></span> Guardando...
+                </span>
+            </div>
+
+            <hr>
+
+            <!-- Editor de respuesta para este grupo -->
+            <div class="mt-2">
+                <label class="form-label fw-bold">
+                    <i class="bi bi-envelope-paper"></i> Respuesta para causas de gravedad {{ grupo.gravedad }}
+                </label>
+                <textarea id="texto-email-{{ grupo.gravedad|lower }}"
+                          class="form-control mb-2" rows="6"
+                >Estimado/a cliente de {{ incidencia.cliente }},
+
+Hemos recibido su incidencia relativa a {% for causa in grupo.causas %}{{ causa.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %} y estamos trabajando en resolverla. Le mantendremos informado/a a la mayor brevedad posible.
+
+Disculpe las molestias ocasionadas.</textarea>
+
+                <div class="d-flex gap-2 flex-wrap align-items-center">
+                    <button class="btn btn-outline-success btn-sm btn-amigable-{{ grupo.gravedad|lower }}"
+                            onclick="ajustarTono('amigable', '{{ grupo.gravedad }}')">
+                        <i class="bi bi-emoji-smile"></i> Tono más amigable
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm btn-serio-{{ grupo.gravedad|lower }}"
+                            onclick="ajustarTono('serio', '{{ grupo.gravedad }}')">
+                        <i class="bi bi-briefcase"></i> Tono más serio
+                    </button>
+                    <span id="spinner-tono-{{ grupo.gravedad|lower }}" class="d-none text-muted">
+                        <span class="spinner-border spinner-border-sm"></span> La IA está pensando...
+                    </span>
+                </div>
+                <div id="error-tono-{{ grupo.gravedad|lower }}" class="alert alert-danger d-none mt-2"></div>
+
+                <button class="btn btn-dark btn-sm mt-2">
+                    <i class="bi bi-send"></i> Enviar al cliente
+                </button>
+            </div>
+
+        </div>
+    </div>
+    {% endfor %}
+
+{% else %}
+<div class="alert alert-info">Esta incidencia no tiene causas registradas.</div>
+{% endif %}
+
+<!-- Toast confirmación gravedades -->
 <div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100">
     <div id="toast-gravedades" class="toast align-items-center text-bg-success border-0" role="alert" aria-atomic="true">
         <div class="d-flex">
@@ -131,81 +189,39 @@
         </div>
     </div>
 </div>
-
-<!-- Editor de respuesta -->
-<div class="card shadow-sm">
-    <div class="card-header bg-dark text-white">
-        <i class="bi bi-envelope-paper"></i> Respuesta al cliente
-    </div>
-    <div class="card-body">
-        <div class="mb-3">
-            <label class="form-label fw-bold">Texto de respuesta</label>
-            <textarea id="texto-email" class="form-control" rows="7">Estimado/a cliente de {{ incidencia.cliente }},
-
-Hemos recibido su incidencia "{{ incidencia.titulo }}" y estamos trabajando en ella. Le mantendremos informado/a del estado a la mayor brevedad posible.
-
-Disculpe las molestias ocasionadas.</textarea>
-        </div>
-
-        <div class="d-flex gap-2 mb-3 flex-wrap">
-            <button id="btn-amigable" class="btn btn-outline-success" onclick="ajustarTono('amigable')">
-                <i class="bi bi-emoji-smile"></i> Tono más amigable
-            </button>
-            <button id="btn-serio" class="btn btn-outline-secondary" onclick="ajustarTono('serio')">
-                <i class="bi bi-briefcase"></i> Tono más serio
-            </button>
-            <span id="spinner" class="d-none align-self-center text-muted ms-2">
-                <span class="spinner-border spinner-border-sm"></span> La IA está pensando...
-            </span>
-        </div>
-
-        <div id="error-tono" class="alert alert-danger d-none"></div>
-
-        <button class="btn btn-dark">
-            <i class="bi bi-send"></i> Enviar al cliente
-        </button>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script>
-$(document).ready(function () {
-    {% if productos %}
-    $('#tabla-productos').DataTable({
-        language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
-        paging: false,
-        searching: false,
-        info: false,
-    });
-    {% endif %}
+// Colorear selects al cargar
+document.querySelectorAll('.select-gravedad').forEach(function(el) { colorearGravedad(el); });
 
-    // Colorear selects al cargar
-    $('.select-gravedad').each(function () { colorearGravedad(this); });
-
-    // Colorear y mostrar botón al cambiar
-    $(document).on('change', '.select-gravedad', function () {
-        colorearGravedad(this);
-        $('#btn-guardar-gravedades').removeClass('d-none');
-    });
+// Al cambiar un select: colorear y mostrar botón guardar del grupo
+document.addEventListener('change', function(e) {
+    if (!e.target.classList.contains('select-gravedad')) return;
+    colorearGravedad(e.target);
+    e.target.closest('.card').querySelector('.btn-guardar-grupo').classList.remove('d-none');
 });
 
 function colorearGravedad(el) {
     var mapa = { 'Grave': 'gravedad-grave', 'Moderada': 'gravedad-moderada', 'Leve': 'gravedad-leve' };
-    $(el).removeClass('gravedad-grave gravedad-moderada gravedad-leve')
-         .addClass(mapa[$(el).val()] || '');
+    el.classList.remove('gravedad-grave', 'gravedad-moderada', 'gravedad-leve');
+    el.classList.add(mapa[el.value] || '');
 }
 
-function guardarGravedades() {
+function guardarGravedadesGrupo(gravedad) {
+    var card = document.querySelector('.btn-guardar-grupo[data-gravedad="' + gravedad + '"]').closest('.card');
     var productos = [];
-    $('.select-gravedad').each(function () {
-        productos.push({ codigo: $(this).data('codigo'), gravedad: $(this).val() });
+    card.querySelectorAll('.select-gravedad').forEach(function(sel) {
+        productos.push({
+            id:      sel.getAttribute('data-material-id') || '',
+            codigo:  sel.getAttribute('data-codigo') || '',
+            gravedad: sel.value,
+        });
     });
 
-    var btn = document.getElementById('btn-guardar-gravedades');
-    var spinner = document.getElementById('spinner-gravedades');
+    var btn     = card.querySelector('.btn-guardar-grupo');
+    var spinner = card.querySelector('.spinner-guardar-' + gravedad.toLowerCase());
     btn.disabled = true;
     spinner.classList.remove('d-none');
 
@@ -217,47 +233,66 @@ function guardarGravedades() {
     .then(r => r.json())
     .then(data => {
         if (data.ok) {
-            // Actualizar data-original para que futuras comparaciones sean correctas
-            $('.select-gravedad').each(function () {
-                $(this).data('original', $(this).val());
-            });
-            btn.classList.add('d-none');
-            var toast = new bootstrap.Toast(document.getElementById('toast-gravedades'));
-            toast.show();
+            // Recargar para mostrar el nuevo agrupamiento por gravedad
+            window.location.reload();
         } else {
             alert(data.error || 'Error al guardar.');
+            btn.disabled = false;
+            spinner.classList.add('d-none');
         }
     })
-    .catch(() => alert('Error de conexión.'))
-    .finally(() => {
+    .catch(() => {
+        alert('Error de conexión.');
         btn.disabled = false;
         spinner.classList.add('d-none');
     });
 }
 
-function ajustarTono(tono) {
-    const texto = document.getElementById('texto-email').value.trim();
+function ajustarTono(tono, gravedad) {
+    var gravedadId = gravedad.toLowerCase();
+    var textarea   = document.getElementById('texto-email-' + gravedadId);
+    var texto      = textarea.value.trim();
     if (!texto) return;
 
-    const btnAmigable = document.getElementById('btn-amigable');
-    const btnSerio = document.getElementById('btn-serio');
-    const spinner = document.getElementById('spinner');
-    const errorDiv = document.getElementById('error-tono');
+    // Recoger causas y productos del grupo correspondiente
+    var card   = document.querySelector('.btn-guardar-grupo[data-gravedad="' + gravedad + '"]').closest('.card');
+    var causas = [];
+    card.querySelectorAll('.causa-item').forEach(function(causaEl) {
+        var prods = [];
+        causaEl.querySelectorAll('tbody tr').forEach(function(row) {
+            prods.push({
+                nombre:   row.cells[0]?.textContent.trim() || '',
+                cantidad: row.cells[2]?.textContent.trim() || '',
+                problema: row.cells[5]?.textContent.trim() || '',
+            });
+        });
+        causas.push({ nombre: causaEl.querySelector('.causa-nombre')?.textContent.trim() || '', productos: prods });
+    });
 
-    btnAmigable.disabled = true;
-    btnSerio.disabled = true;
+    var btnAm  = document.querySelector('.btn-amigable-' + gravedadId);
+    var btnSer = document.querySelector('.btn-serio-' + gravedadId);
+    var spinner = document.getElementById('spinner-tono-' + gravedadId);
+    var errorDiv = document.getElementById('error-tono-' + gravedadId);
+
+    btnAm.disabled = btnSer.disabled = true;
     spinner.classList.remove('d-none');
     errorDiv.classList.add('d-none');
 
     fetch("{% url 'comercial:ajustar_tono' %}", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-        body: JSON.stringify({ texto: texto, tono: tono }),
+        body: JSON.stringify({
+            texto:    texto,
+            tono:     tono,
+            cliente:  '{{ incidencia.cliente|escapejs }}',
+            gravedad: gravedad,
+            causas:   causas,
+        }),
     })
     .then(r => r.json())
     .then(data => {
         if (data.texto) {
-            document.getElementById('texto-email').value = data.texto;
+            textarea.value = data.texto;
         } else {
             errorDiv.textContent = data.error || 'Error desconocido.';
             errorDiv.classList.remove('d-none');
@@ -268,8 +303,7 @@ function ajustarTono(tono) {
         errorDiv.classList.remove('d-none');
     })
     .finally(() => {
-        btnAmigable.disabled = false;
-        btnSerio.disabled = false;
+        btnAm.disabled = btnSer.disabled = false;
         spinner.classList.add('d-none');
     });
 }

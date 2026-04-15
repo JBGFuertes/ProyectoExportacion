@@ -125,8 +125,14 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Power Automate
-POWER_AUTOMATE_TONO_URL = os.getenv('POWER_AUTOMATE_TONO_URL', '')
+POWER_AUTOMATE_TONO_URL        = os.getenv('POWER_AUTOMATE_TONO_URL', '')
 POWER_AUTOMATE_INCIDENCIAS_URL = os.getenv('POWER_AUTOMATE_INCIDENCIAS_URL', '')
+
+# Azure AD + Dataverse
+AZURE_CLIENT_ID     = os.getenv('AZURE_CLIENT_ID', '')
+AZURE_TENANT_ID     = os.getenv('AZURE_TENANT_ID', '')
+AZURE_CLIENT_SECRET = os.getenv('AZURE_CLIENT_SECRET', '')
+DATAVERSE_URL       = os.getenv('DATAVERSE_URL', '')
 
 # Autenticación
 LOGIN_URL = '/login/'
