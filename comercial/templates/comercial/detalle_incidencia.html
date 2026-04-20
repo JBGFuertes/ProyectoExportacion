@@ -2,23 +2,12 @@
 
 {% block title %}{{ incidencia.titulo }}{% endblock %}
 
-{% block extra_css %}
-<style>
-    .select-gravedad { border-radius: 20px; font-size: .8rem; font-weight: 600; text-align: center; border: 2px solid transparent; transition: background-color .2s, color .2s; }
-    .select-gravedad.gravedad-grave    { background-color: #dc3545; color: #fff; border-color: #dc3545; }
-    .select-gravedad.gravedad-moderada { background-color: #ffc107; color: #212529; border-color: #ffc107; }
-    .select-gravedad.gravedad-leve     { background-color: #6c757d; color: #fff; border-color: #6c757d; }
-    .select-gravedad option { background-color: #fff; color: #212529; font-weight: normal; }
-    .grupo-grave    .card-header { background-color: #dc3545; color: #fff; }
-    .grupo-moderada .card-header { background-color: #ffc107; color: #212529; }
-    .grupo-leve     .card-header { background-color: #6c757d; color: #fff; }
-</style>
-{% endblock %}
+{% block extra_css %}{% endblock %}
 
 {% block content %}
 <div class="mb-3">
     <a href="{% url 'comercial:dashboard' %}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Volver
+        <i class="bi bi-arrow-left"></i> Volver al dashboard
     </a>
 </div>
 
@@ -54,10 +43,10 @@
             </div>
         </div>
         <div class="mt-4 d-flex gap-2">
-            <button class="btn btn-danger" onclick="derivarCalidad()">
+            <button class="btn-dorado" onclick="derivarCalidad()">
                 <i class="bi bi-exclamation-triangle"></i> Derivar a Calidad
             </button>
-            <button class="btn btn-success" onclick="marcarFinalizada()">
+            <button class="btn-corporativo" onclick="marcarFinalizada()">
                 <i class="bi bi-check-circle"></i> Marcar como Finalizada
             </button>
         </div>
@@ -86,17 +75,12 @@
                             <th>Lote</th>
                             <th>Albarán</th>
                             <th>Problema</th>
+                            <th>Causa</th>
                             <th>Gravedad</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for causa in grupo.causas %}
-                        <tr class="causa-item">
-                            <td colspan="7" class="py-2 bg-light">
-                                <i class="bi bi-tag-fill text-secondary me-1"></i>
-                                <span class="fw-bold causa-nombre">{{ causa.nombre }}</span>
-                            </td>
-                        </tr>
                         {% for p in causa.productos %}
                         <tr>
                             <td>{{ p.nombre }}</td>
@@ -106,11 +90,20 @@
                             <td>{{ p.albaran }}</td>
                             <td>{{ p.problema }}</td>
                             <td>
+                                <select class="form-select form-select-sm select-causa"
+                                        style="min-width:140px"
+                                        data-material-id="{{ p.id }}"
+                                        data-causa-nombre="{{ p.causa_nombre }}"
+                                        data-causa-catalog-id="{{ p.causa_catalog_id }}"
+                                        data-causa-id-original="{{ p.causa_id }}">
+                                    <!-- opciones inyectadas por JS desde CAUSAS_CATALOGO -->
+                                </select>
+                            </td>
+                            <td>
                                 <select class="form-select form-select-sm select-gravedad"
                                         style="width:auto"
                                         data-material-id="{{ p.id }}"
-                                        data-codigo="{{ p.codigo }}"
-                                        data-original="{{ grupo.gravedad }}">
+                                        data-codigo="{{ p.codigo }}">
                                     <option value="Leve"     {% if p.gravedad == 'Leve' %}selected{% endif %}>Leve</option>
                                     <option value="Moderada" {% if p.gravedad == 'Moderada' %}selected{% endif %}>Moderada</option>
                                     <option value="Grave"    {% if p.gravedad == 'Grave' %}selected{% endif %}>Grave</option>
@@ -125,10 +118,10 @@
 
             <!-- Botón guardar gravedades (aparece al cambiar cualquier producto del grupo) -->
             <div class="mb-3 d-flex align-items-center gap-2">
-                <button class="btn btn-sm btn-outline-primary btn-guardar-grupo d-none"
+                <button class="btn-corporativo btn-sm btn-guardar-grupo d-none" style="font-size:.75rem;padding:6px 14px"
                         data-gravedad="{{ grupo.gravedad }}"
                         onclick="guardarGravedadesGrupo('{{ grupo.gravedad }}')">
-                    <i class="bi bi-save"></i> Guardar cambios de gravedad
+                    <i class="bi bi-save"></i> Guardar cambios
                 </button>
                 <span class="spinner-guardar-{{ grupo.gravedad|lower }} d-none text-muted">
                     <span class="spinner-border spinner-border-sm"></span> Guardando...
@@ -151,12 +144,12 @@ Hemos recibido su incidencia relativa a {% for causa in grupo.causas %}{{ causa.
 Disculpe las molestias ocasionadas.</textarea>
 
                 <div class="d-flex gap-2 flex-wrap align-items-center">
-                    <button class="btn btn-outline-success btn-sm btn-amigable-{{ grupo.gravedad|lower }}"
+                    <button class="btn btn-sm btn-outline-success btn-amigable-{{ grupo.gravedad|lower }}"
                             onclick="ajustarTono('amigable', '{{ grupo.gravedad }}')">
                         <i class="bi bi-emoji-smile"></i> Tono más amigable
                     </button>
-                    <button class="btn btn-outline-secondary btn-sm btn-serio-{{ grupo.gravedad|lower }}"
-                            onclick="ajustarTono('serio', '{{ grupo.gravedad }}')">
+                    <button class="btn btn-sm btn-outline-secondary btn-serio-{{ grupo.gravedad|lower }}"
+                            onclick="ajustarTono('formal', '{{ grupo.gravedad }}')">
                         <i class="bi bi-briefcase"></i> Tono más serio
                     </button>
                     <span id="spinner-tono-{{ grupo.gravedad|lower }}" class="d-none text-muted">
@@ -165,7 +158,7 @@ Disculpe las molestias ocasionadas.</textarea>
                 </div>
                 <div id="error-tono-{{ grupo.gravedad|lower }}" class="alert alert-danger d-none mt-2"></div>
 
-                <button class="btn btn-dark btn-sm mt-2">
+                <button class="btn-corporativo mt-2" style="font-size:.75rem;padding:6px 14px">
                     <i class="bi bi-send"></i> Enviar al cliente
                 </button>
             </div>
@@ -193,14 +186,44 @@ Disculpe las molestias ocasionadas.</textarea>
 
 {% block extra_js %}
 <script>
-// Colorear selects al cargar
+// Opciones del catálogo (activas, ordenadas por gfit_orden)
+var CAUSAS_CATALOGO = {{ causas_catalogo_json|safe }};
+// Mapeo nombre_causa → ticket_cause_id (para el vínculo en Dataverse al guardar)
+var CAUSA_ID_MAP = {{ causa_id_map_json|safe }};
+
+// Inicializar selects de causa: preselección por ID de catálogo, fallback por nombre
+document.querySelectorAll('.select-causa').forEach(function(sel) {
+    var nombreActual   = sel.getAttribute('data-causa-nombre');
+    var catalogIdActual = sel.getAttribute('data-causa-catalog-id') || '';
+    var html = '';
+    CAUSAS_CATALOGO.forEach(function(c) {
+        var matched = catalogIdActual ? (c.id === catalogIdActual) : (c.nombre === nombreActual);
+        var selected = matched ? ' selected' : '';
+        html += '<option value="' + c.nombre + '" data-gravedad="' + c.gravedad + '" data-id="' + c.id + '"' + selected + '>' + c.nombre + '</option>';
+    });
+    sel.innerHTML = html;
+});
+
+// Colorear selects de gravedad al cargar
 document.querySelectorAll('.select-gravedad').forEach(function(el) { colorearGravedad(el); });
 
-// Al cambiar un select: colorear y mostrar botón guardar del grupo
 document.addEventListener('change', function(e) {
-    if (!e.target.classList.contains('select-gravedad')) return;
-    colorearGravedad(e.target);
-    e.target.closest('.card').querySelector('.btn-guardar-grupo').classList.remove('d-none');
+    // Al cambiar gravedad: colorear y mostrar botón guardar
+    if (e.target.classList.contains('select-gravedad')) {
+        colorearGravedad(e.target);
+        e.target.closest('.card').querySelector('.btn-guardar-grupo').classList.remove('d-none');
+    }
+
+    // Al cambiar causa: resetear gravedad a la del catálogo para esa causa y mostrar botón guardar
+    if (e.target.classList.contains('select-causa')) {
+        var opt = e.target.options[e.target.selectedIndex];
+        var nuevaGravedad = opt ? (opt.getAttribute('data-gravedad') || 'Leve') : 'Leve';
+        var fila = e.target.closest('tr');
+        var selGravedad = fila.querySelector('.select-gravedad');
+        selGravedad.value = nuevaGravedad;
+        colorearGravedad(selGravedad);
+        e.target.closest('.card').querySelector('.btn-guardar-grupo').classList.remove('d-none');
+    }
 });
 
 function colorearGravedad(el) {
@@ -212,11 +235,21 @@ function colorearGravedad(el) {
 function guardarGravedadesGrupo(gravedad) {
     var card = document.querySelector('.btn-guardar-grupo[data-gravedad="' + gravedad + '"]').closest('.card');
     var productos = [];
-    card.querySelectorAll('.select-gravedad').forEach(function(sel) {
+    card.querySelectorAll('tbody tr').forEach(function(fila) {
+        var selGrav  = fila.querySelector('.select-gravedad');
+        var selCausa = fila.querySelector('.select-causa');
+        if (!selGrav) return;
+        var causaNombre    = selCausa ? selCausa.value : '';
+        var causaOpt       = selCausa ? selCausa.options[selCausa.selectedIndex] : null;
+        var causaCatalogId = causaOpt ? (causaOpt.getAttribute('data-id') || '') : '';
         productos.push({
-            id:      sel.getAttribute('data-material-id') || '',
-            codigo:  sel.getAttribute('data-codigo') || '',
-            gravedad: sel.value,
+            id:                selGrav.getAttribute('data-material-id') || '',
+            codigo:            selGrav.getAttribute('data-codigo') || '',
+            gravedad:          selGrav.value,
+            causa_id:          CAUSA_ID_MAP[causaNombre] || '',
+            causa_nombre:      causaNombre,
+            causa_catalog_id:  causaCatalogId,
+            causa_id_original: selCausa ? (selCausa.getAttribute('data-causa-id-original') || '') : '',
         });
     });
 
@@ -233,7 +266,6 @@ function guardarGravedadesGrupo(gravedad) {
     .then(r => r.json())
     .then(data => {
         if (data.ok) {
-            // Recargar para mostrar el nuevo agrupamiento por gravedad
             window.location.reload();
         } else {
             alert(data.error || 'Error al guardar.');
@@ -254,19 +286,21 @@ function ajustarTono(tono, gravedad) {
     var texto      = textarea.value.trim();
     if (!texto) return;
 
-    // Recoger causas y productos del grupo correspondiente
+    // Recoger causas y productos del grupo correspondiente agrupando por causa seleccionada
     var card   = document.querySelector('.btn-guardar-grupo[data-gravedad="' + gravedad + '"]').closest('.card');
-    var causas = [];
-    card.querySelectorAll('.causa-item').forEach(function(causaEl) {
-        var prods = [];
-        causaEl.querySelectorAll('tbody tr').forEach(function(row) {
-            prods.push({
-                nombre:   row.cells[0]?.textContent.trim() || '',
-                cantidad: row.cells[2]?.textContent.trim() || '',
-                problema: row.cells[5]?.textContent.trim() || '',
-            });
+    var causasMap = {};
+    card.querySelectorAll('tbody tr').forEach(function(row) {
+        var selCausa   = row.querySelector('.select-causa');
+        var causaNombre = selCausa ? selCausa.value : '';
+        if (!causasMap[causaNombre]) causasMap[causaNombre] = [];
+        causasMap[causaNombre].push({
+            nombre:   row.cells[0]?.textContent.trim() || '',
+            cantidad: row.cells[2]?.textContent.trim() || '',
+            problema: row.cells[5]?.textContent.trim() || '',
         });
-        causas.push({ nombre: causaEl.querySelector('.causa-nombre')?.textContent.trim() || '', productos: prods });
+    });
+    var causas = Object.entries(causasMap).map(function(entry) {
+        return { nombre: entry[0], productos: entry[1] };
     });
 
     var btnAm  = document.querySelector('.btn-amigable-' + gravedadId);

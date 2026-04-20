@@ -1,6 +1,9 @@
 import json
+import logging
 import requests
 import urllib3
+
+logger = logging.getLogger(__name__)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from django.conf import settings
 from django.shortcuts import render, redirect
@@ -66,9 +69,20 @@ def detalle_incidencia(request, incidencia_id):
     if not detalle:
         return redirect('comercial:dashboard')
 
+    # Catálogo de causas activas (para las opciones del select)
+    try:
+        causas_catalogo = DataverseClient().get_causes_catalog()
+    except Exception:
+        causas_catalogo = []
+
+    # Mapeo nombre → ticket_cause_id (todas las causas del ticket, no solo las que tienen materiales)
+    causa_id_por_nombre = detalle.get('all_ticket_causes', {})
+
     return render(request, 'comercial/detalle_incidencia.html', {
-        'incidencia': detalle['incidencia'],
-        'grupos':     detalle['grupos'],
+        'incidencia':          detalle['incidencia'],
+        'grupos':              detalle['grupos'],
+        'causas_catalogo_json': json.dumps(causas_catalogo, ensure_ascii=False),
+        'causa_id_map_json':   json.dumps(causa_id_por_nombre, ensure_ascii=False),
     })
 
 
@@ -93,19 +107,33 @@ def actualizar_gravedades(request, incidencia_id):
 
         client = DataverseClient()
         for cambio in productos:
-            material_id = cambio.get('id', '').strip()
-            gravedad    = cambio.get('gravedad', '').strip()
+            material_id       = cambio.get('id', '').strip()
+            gravedad          = cambio.get('gravedad', '').strip()
+            causa_id          = cambio.get('causa_id', '').strip()
+            causa_nombre      = cambio.get('causa_nombre', '').strip()
+            causa_catalog_id  = cambio.get('causa_catalog_id', '').strip()
+            causa_id_original = cambio.get('causa_id_original', '').strip()
 
             if gravedad not in valores_validos:
                 return JsonResponse({'error': f'Gravedad no válida: {gravedad}'}, status=400)
 
-            if material_id:
-                client.update_gravedad_material(material_id, gravedad)
+            if not material_id:
+                continue
+
+            # Si la causa no existe aún en el ticket, crearla
+            if not causa_id and causa_nombre:
+                causa_id = client.create_ticket_cause(incidencia_id, causa_nombre, causa_catalog_id)
+
+            client.update_material(material_id, gravedad, causa_id or None)
+
+            # Si el material cambió de causa, borrar la causa vieja si quedó sin materiales
+            if causa_id_original and causa_id and causa_id_original != causa_id:
+                client.delete_ticket_cause_if_empty(causa_id_original)
 
         return JsonResponse({'ok': True})
 
-    except Exception:
-        return JsonResponse({'error': 'Error al guardar las gravedades.'}, status=500)
+    except Exception as e:
+        return JsonResponse({'error': f'Error al guardar: {e}'}, status=500)
 
 
 @login_required
@@ -117,12 +145,10 @@ def ajustar_tono(request):
         texto = body.get('texto', '').strip()
         tono = body.get('tono', '')
 
-        if not texto or tono not in ('amigable', 'serio'):
+        if not texto or tono not in ('amigable', 'formal'):
             return JsonResponse({'error': 'Datos incorrectos.'}, status=400)
 
-        url = settings.POWER_AUTOMATE_TONO_URL
-        if not url:
-            return JsonResponse({'error': 'URL de Power Automate no configurada.'}, status=500)
+        url = 'http://scloudw040:1084/Endpoint_Incidencias/api/incidencias/consulta'
 
         payload = {
             'texto':    texto,
@@ -132,12 +158,16 @@ def ajustar_tono(request):
             'causas':   body.get('causas', []),
         }
 
-        respuesta = requests.post(url, json=payload, timeout=30, verify=False)
+        respuesta = requests.post(url, json=payload, timeout=120, verify=False)
         respuesta.raise_for_status()
         datos = respuesta.json()
-        return JsonResponse({'texto': datos.get('texto', '')})
+        logger.info('Respuesta endpoint tono: %s', datos)
+        texto = datos.get('content', '')
+        if not texto:
+            return JsonResponse({'error': f'El endpoint no devolvió "content". Respuesta recibida: {datos}'})
+        return JsonResponse({'texto': texto})
 
     except requests.Timeout:
         return JsonResponse({'error': 'La IA tardó demasiado. Inténtalo de nuevo.'}, status=504)
-    except Exception:
-        return JsonResponse({'error': 'Error al contactar con la IA.'}, status=500)
+    except Exception as e:
+        return JsonResponse({'error': f'Error al contactar con la IA: {e}'}, status=500)

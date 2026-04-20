@@ -71,11 +71,6 @@ class DataverseClient:
     # -------------------------------------------------------------------------
 
     def get_tickets(self):
-        """
-        Devuelve la lista de tickets para el dashboard.
-        Formato de cada item:
-          {id, titulo, cliente, correo, estado, fecha, derivada_calidad}
-        """
         result = self._get('gfit_qlt_tickets', params={
             '$select': 'gfit_qlt_ticketid,gfit_name,gfit_correocliente,gfit_estado,createdon',
             '$orderby': 'createdon desc',
@@ -98,27 +93,6 @@ class DataverseClient:
     # -------------------------------------------------------------------------
 
     def get_ticket_detail(self, ticket_id):
-        """
-        Devuelve el ticket con sus causas agrupadas por gravedad y los productos de cada causa.
-
-        Estructura devuelta:
-        {
-            'incidencia': {id, titulo, cliente, correo, empresa, idioma, estado, fecha},
-            'grupos': [
-                {
-                    'gravedad': 'Grave',
-                    'causas': [
-                        {
-                            'id': '...',
-                            'nombre': '...',
-                            'productos': [{nombre, codigo, cantidad, lote, albaran, problema, fecha}]
-                        }
-                    ]
-                },
-                ...  # también Moderada y Leve si existen
-            ]
-        }
-        """
         # 1. Ticket
         t = self._get(f'gfit_qlt_tickets({ticket_id})', params={
             '$select': 'gfit_qlt_ticketid,gfit_name,gfit_correocliente,gfit_estado,'
@@ -137,15 +111,16 @@ class DataverseClient:
 
         # 2. Causas del ticket
         causas_raw = self._get('gfit_qlt_ticket_causes', params={
-            '$select': 'gfit_qlt_ticket_causeid,gfit_name',
+            '$select': 'gfit_qlt_ticket_causeid,gfit_name,_gfit_qlt_cause_catalogid_value',
             '$filter': f"_gfit_qlt_ticketid_value eq {ticket_id}",
         }).get('value', [])
 
-        # 3. Para cada causa obtener sus materiales (con su propia gravedad)
+        # 3. Para cada causa obtener sus materiales
         todos_materiales = []
         for c in causas_raw:
-            cause_id   = c['gfit_qlt_ticket_causeid']
-            cause_name = c.get('gfit_name', '')
+            cause_id         = c['gfit_qlt_ticket_causeid']
+            cause_name       = c.get('gfit_name', '')
+            cause_catalog_id = c.get('_gfit_qlt_cause_catalogid_value') or ''
             materiales = self._get('gfit_qlt_ticket_materials', params={
                 '$select': 'gfit_qlt_ticket_materialid,gfit_nombreproducto,gfit_codigoproducto,'
                            'gfit_cantidad,gfit_lote,gfit_albaran,gfit_problema,'
@@ -155,27 +130,26 @@ class DataverseClient:
 
             for m in materiales:
                 todos_materiales.append({
-                    'id':          m['gfit_qlt_ticket_materialid'],
-                    'nombre':      m.get('gfit_nombreproducto', ''),
-                    'codigo':      m.get('gfit_codigoproducto', ''),
-                    'cantidad':    m.get('gfit_cantidad', ''),
-                    'lote':        m.get('gfit_lote', ''),
-                    'albaran':     m.get('gfit_albaran', ''),
-                    'problema':    m.get('gfit_problema', ''),
-                    'fecha':       (m.get('gfit_fecharecibimiento') or '')[:10],
-                    'gravedad':    GRAVEDAD_MAP.get(m.get('gfit_gravedad'), 'Leve'),
-                    'causa_nombre': cause_name,
-                    'causa_id':    cause_id,
+                    'id':           m['gfit_qlt_ticket_materialid'],
+                    'nombre':       m.get('gfit_nombreproducto', ''),
+                    'codigo':       m.get('gfit_codigoproducto', ''),
+                    'cantidad':     m.get('gfit_cantidad', ''),
+                    'lote':         m.get('gfit_lote', ''),
+                    'albaran':      m.get('gfit_albaran', ''),
+                    'problema':     m.get('gfit_problema', ''),
+                    'fecha':        (m.get('gfit_fecharecibimiento') or '')[:10],
+                    'gravedad':          GRAVEDAD_MAP.get(m.get('gfit_gravedad'), 'Leve'),
+                    'causa_nombre':      cause_name,
+                    'causa_id':          cause_id,
+                    'causa_catalog_id':  cause_catalog_id,
                 })
 
-        # 4. Agrupar por gravedad del MATERIAL (Grave > Moderada > Leve)
-        #    Dentro de cada grupo, subagrupamos por causa para dar contexto
+        # 4. Agrupar por gravedad del material
         grupos = []
         for gravedad in ['Grave', 'Moderada', 'Leve']:
             mats = [m for m in todos_materiales if m['gravedad'] == gravedad]
             if not mats:
                 continue
-            # Sub-agrupar por causa
             causas_vistas = {}
             for m in mats:
                 cid = m['causa_id']
@@ -184,19 +158,80 @@ class DataverseClient:
                 causas_vistas[cid]['productos'].append(m)
             grupos.append({'gravedad': gravedad, 'causas': list(causas_vistas.values())})
 
-        return {'incidencia': incidencia, 'grupos': grupos}
+        # Mapa nombre → id de TODAS las ticket_causes (incluso las sin materiales)
+        all_ticket_causes = {c.get('gfit_name', ''): c['gfit_qlt_ticket_causeid'] for c in causas_raw}
+
+        return {'incidencia': incidencia, 'grupos': grupos, 'all_ticket_causes': all_ticket_causes}
+
+    # -------------------------------------------------------------------------
+    # Catálogo de causas
+    # -------------------------------------------------------------------------
+
+    def get_causes_catalog(self):
+        result = self._get('gfit_qlt_cause_catalogs', params={
+            '$select': 'gfit_qlt_cause_catalogid,gfit_nombrecausa,gfit_gravedad,gfit_orden',
+            '$filter': 'gfit_activo eq true',
+            '$orderby': 'gfit_orden asc',
+        })
+        causas = []
+        for c in result.get('value', []):
+            causas.append({
+                'id':       c['gfit_qlt_cause_catalogid'],
+                'nombre':   c.get('gfit_nombrecausa', ''),
+                'gravedad': GRAVEDAD_MAP.get(c.get('gfit_gravedad'), 'Leve'),
+            })
+        return causas
 
     # -------------------------------------------------------------------------
     # Actualizaciones
     # -------------------------------------------------------------------------
 
     def update_ticket(self, ticket_id, datos):
-        """Actualiza campos de un ticket. datos es un dict con nombres lógicos de Dataverse."""
         self._patch(f'gfit_qlt_tickets({ticket_id})', datos)
 
     def update_gravedad_material(self, material_id, gravedad_str):
-        """Actualiza la gravedad de un material (producto)."""
         code = GRAVEDAD_REVERSE.get(gravedad_str)
         if code is None:
             raise ValueError(f'Gravedad no válida: {gravedad_str}')
         self._patch(f'gfit_qlt_ticket_materials({material_id})', {'gfit_gravedad': code})
+
+    def delete_ticket_cause_if_empty(self, cause_id):
+        """Borra la ticket_cause si ya no tiene materiales."""
+        materiales = self._get('gfit_qlt_ticket_materials', params={
+            '$select': 'gfit_qlt_ticket_materialid',
+            '$filter': f"_gfit_qlt_ticket_causeid_value eq {cause_id}",
+            '$top': '1',
+        }).get('value', [])
+        if not materiales:
+            url = f'{self.base_url}/gfit_qlt_ticket_causes({cause_id})'
+            requests.delete(url, headers=self._headers(), verify=False, timeout=30).raise_for_status()
+
+    def create_ticket_cause(self, ticket_id, nombre, catalog_cause_id=None):
+        """Crea una nueva causa en el ticket y devuelve su ID."""
+        payload = {
+            'gfit_name': nombre,
+            'gfit_qlt_ticketID@odata.bind': f'/gfit_qlt_tickets({ticket_id})',
+        }
+        if catalog_cause_id:
+            payload['gfit_qlt_cause_catalogID@odata.bind'] = f'/gfit_qlt_cause_catalogs({catalog_cause_id})'
+        r = requests.post(
+            f'{self.base_url}/gfit_qlt_ticket_causes',
+            headers=self._headers(),
+            json=payload,
+            verify=False,
+            timeout=30,
+        )
+        if not r.ok:
+            raise Exception(f'Dataverse {r.status_code} al crear causa: {r.text}')
+        location = r.headers.get('OData-EntityId', '') or r.headers.get('Location', '')
+        return location.split('(')[-1].rstrip(')')
+
+    def update_material(self, material_id, gravedad_str, causa_id=None):
+        """Actualiza gravedad y opcionalmente la causa de un material."""
+        code = GRAVEDAD_REVERSE.get(gravedad_str)
+        if code is None:
+            raise ValueError(f'Gravedad no válida: {gravedad_str}')
+        data = {'gfit_gravedad': code}
+        if causa_id:
+            data['gfit_qlt_ticket_causeID@odata.bind'] = f'/gfit_qlt_ticket_causes({causa_id})'
+        self._patch(f'gfit_qlt_ticket_materials({material_id})', data)

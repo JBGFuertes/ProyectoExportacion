@@ -80,7 +80,7 @@
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">Cantidad afectada</label>
-                                    <input type="number" name="p{{ forloop.counter0 }}_cantidad" class="form-control" value="{{ p.cantidad }}" min="1">
+                                    <input type="text" name="p{{ forloop.counter0 }}_cantidad" class="form-control" value="{{ p.cantidad }}">
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">Albarán</label>
@@ -94,7 +94,21 @@
                                     <label class="form-label">Problema</label>
                                     <input type="text" name="p{{ forloop.counter0 }}_problema" class="form-control" value="{{ p.problema }}" placeholder="Describe brevemente el problema">
                                 </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Causa <span class="text-danger">*</span></label>
+                                    <select name="p{{ forloop.counter0 }}_causa" class="form-select select-causa" required>
+                                        <option value="">-- Selecciona causa --</option>
+                                        {% for causa in causas_catalogo %}
+                                        <option value="{{ causa.nombre }}"
+                                                data-gravedad="{{ causa.gravedad }}"
+                                                {% if p.causa == causa.nombre %}selected{% endif %}>
+                                            {{ causa.nombre }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
                             </div>
+                            <input type="hidden" name="p{{ forloop.counter0 }}_gravedad" value="{{ p.gravedad }}">
                         </div>
                         {% endfor %}
                     </div>
@@ -116,7 +130,17 @@
 
 {% block extra_js %}
 <script>
+var CAUSAS_CATALOGO = {{ causas_catalogo_json|safe }};
 var contadorProductos = document.querySelectorAll('.producto-fila').length;
+
+function buildCausaOptions(valorSeleccionado) {
+    var html = '<option value="">-- Selecciona causa --</option>';
+    CAUSAS_CATALOGO.forEach(function(c) {
+        var sel = (c.nombre === valorSeleccionado) ? ' selected' : '';
+        html += '<option value="' + c.nombre + '" data-gravedad="' + c.gravedad + '"' + sel + '>' + c.nombre + '</option>';
+    });
+    return html;
+}
 
 function actualizarNumeros() {
     document.querySelectorAll('.producto-fila').forEach(function(fila, idx) {
@@ -124,7 +148,9 @@ function actualizarNumeros() {
         fila.querySelectorAll('input').forEach(function(input) {
             input.name = input.name.replace(/^p\d+_/, 'p' + idx + '_');
         });
-        // El primero no puede borrarse
+        fila.querySelectorAll('select').forEach(function(sel) {
+            sel.name = sel.name.replace(/^p\d+_/, 'p' + idx + '_');
+        });
         var btnEliminar = fila.querySelector('button[onclick="eliminarProducto(this)"]');
         if (idx === 0) btnEliminar.classList.add('invisible');
         else btnEliminar.classList.remove('invisible');
@@ -145,11 +171,15 @@ function añadirProducto() {
             <div class="col-md-3"><label class="form-label">Código producto</label><input type="text" name="pX_codigo" class="form-control"></div>
             <div class="col-md-3"><label class="form-label">Producto</label><input type="text" name="pX_nombre" class="form-control"></div>
             <div class="col-md-3"><label class="form-label">Lote</label><input type="text" name="pX_lote" class="form-control"></div>
-            <div class="col-md-3"><label class="form-label">Cantidad afectada</label><input type="number" name="pX_cantidad" class="form-control" min="1"></div>
+            <div class="col-md-3"><label class="form-label">Cantidad afectada</label><input type="text" name="pX_cantidad" class="form-control"></div>
             <div class="col-md-3"><label class="form-label">Albarán</label><input type="text" name="pX_albaran" class="form-control"></div>
             <div class="col-md-3"><label class="form-label">Fecha de recibimiento</label><input type="date" name="pX_fecha" class="form-control"></div>
             <div class="col-md-6"><label class="form-label">Problema</label><input type="text" name="pX_problema" class="form-control" placeholder="Describe brevemente el problema"></div>
+            <div class="col-md-6"><label class="form-label">Causa <span class="text-danger">*</span></label>
+                <select name="pX_causa" class="form-select select-causa" required>${buildCausaOptions('')}</select>
+            </div>
         </div>
+        <input type="hidden" name="pX_gravedad" value="">
     </div>`;
     document.getElementById('contenedor-productos').insertAdjacentHTML('beforeend', plantilla);
     actualizarNumeros();
@@ -159,5 +189,13 @@ function eliminarProducto(btn) {
     btn.closest('.producto-fila').remove();
     actualizarNumeros();
 }
+
+// Al cambiar la causa, actualizar el campo oculto gravedad
+document.addEventListener('change', function(e) {
+    if (!e.target.classList.contains('select-causa')) return;
+    var opt = e.target.options[e.target.selectedIndex];
+    var gravedad = opt ? (opt.getAttribute('data-gravedad') || '') : '';
+    e.target.closest('.producto-fila').querySelector('input[name$="_gravedad"]').value = gravedad;
+});
 </script>
 {% endblock %}

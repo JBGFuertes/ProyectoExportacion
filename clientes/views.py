@@ -1,3 +1,4 @@
+import json
 import requests
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -25,6 +26,8 @@ def _leer_productos_url(request):
             'albaran':  request.GET.get(f'p{i}_albaran', ''),
             'fecha':    request.GET.get(f'p{i}_fecha', ''),
             'problema': request.GET.get(f'p{i}_problema', ''),
+            'causa':    request.GET.get(f'p{i}_causa', ''),
+            'gravedad': request.GET.get(f'p{i}_gravedad', ''),
         })
         i += 1
     return productos
@@ -43,6 +46,8 @@ def _leer_productos_post(request):
             'albaran':  request.POST.get(f'p{i}_albaran', '').strip(),
             'fecha':    request.POST.get(f'p{i}_fecha', '').strip(),
             'problema': request.POST.get(f'p{i}_problema', '').strip(),
+            'causa':    request.POST.get(f'p{i}_causa', '').strip(),
+            'gravedad': request.POST.get(f'p{i}_gravedad', '').strip(),
         })
         i += 1
     return productos
@@ -58,11 +63,21 @@ def nueva_incidencia(request):
         }
         productos = _leer_productos_post(request)
 
+        try:
+            causas_catalogo = DataverseClient().get_causes_catalog()
+        except Exception:
+            causas_catalogo = []
+        catalogo_ctx = {
+            'causas_catalogo':      causas_catalogo,
+            'causas_catalogo_json': json.dumps(causas_catalogo, ensure_ascii=False),
+        }
+
         if not all(identificacion.values()):
             messages.error(request, 'Los campos Empresa, Correo y ConversationID son obligatorios.')
             return render(request, 'clientes/nueva_incidencia.html', {
                 'identificacion': identificacion,
                 'productos':      productos,
+                **catalogo_ctx,
             })
 
         if not productos:
@@ -70,9 +85,23 @@ def nueva_incidencia(request):
             return render(request, 'clientes/nueva_incidencia.html', {
                 'identificacion': identificacion,
                 'productos':      productos,
+                **catalogo_ctx,
             })
 
-        payload = {**identificacion, 'productos': productos}
+        # Agrupar productos por causa; gravedad va dentro de cada producto
+        causas_agrupadas = {}
+        for p in productos:
+            clave = p['causa']
+            if clave not in causas_agrupadas:
+                causas_agrupadas[clave] = {'nombre': p['causa'], 'productos': []}
+            causas_agrupadas[clave]['productos'].append({
+                k: v for k, v in p.items() if k != 'causa'
+            })
+
+        payload = {
+            **identificacion,
+            'causas': list(causas_agrupadas.values()),
+        }
 
         url = settings.POWER_AUTOMATE_INCIDENCIAS_URL
         if url:
@@ -91,9 +120,16 @@ def nueva_incidencia(request):
     }
     productos = _leer_productos_url(request) or [{}]
 
+    try:
+        causas_catalogo = DataverseClient().get_causes_catalog()
+    except Exception:
+        causas_catalogo = []
+
     return render(request, 'clientes/nueva_incidencia.html', {
-        'identificacion': identificacion,
-        'productos':      productos,
+        'identificacion':      identificacion,
+        'productos':           productos,
+        'causas_catalogo':     causas_catalogo,
+        'causas_catalogo_json': json.dumps(causas_catalogo, ensure_ascii=False),
     })
 
 
