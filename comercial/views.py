@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import requests
@@ -134,6 +135,56 @@ def actualizar_gravedades(request, incidencia_id):
 
     except Exception as e:
         return JsonResponse({'error': f'Error al guardar: {e}'}, status=500)
+
+
+@login_required
+@require_POST
+def enviar_respuesta(request, incidencia_id):
+    """Envía la respuesta al cliente por email via Power Automate."""
+    texto = request.POST.get('texto', '').strip()
+    if not texto:
+        return JsonResponse({'error': 'El texto no puede estar vacío.'}, status=400)
+
+    url = settings.POWER_AUTOMATE_EMAIL_REPLY_URL
+    if not url:
+        return JsonResponse({'error': 'URL de envío de email no configurada.'}, status=500)
+
+    try:
+        datos = DataverseClient().get_ticket_reply_data(incidencia_id)
+    except Exception as e:
+        return JsonResponse({'error': f'Error obteniendo datos del ticket: {e}'}, status=500)
+
+    if not datos['destinatario']:
+        return JsonResponse({'error': 'El ticket no tiene correo de cliente.'}, status=400)
+    if not datos['message_id']:
+        return JsonResponse({'error': 'Este ticket no tiene message_id: fue creado sin email original y no se puede responder por correo.'}, status=400)
+
+    logger.info('Enviando respuesta email — destinatario: %s | conversation_id: %s | message_id: %s',
+                datos['destinatario'], datos['conversation_id'], datos['message_id'])
+
+    adjuntos = []
+    for f in request.FILES.getlist('adjuntos'):
+        adjuntos.append({
+            'Name':         f.name,
+            'ContentBytes': base64.b64encode(f.read()).decode('utf-8'),
+        })
+
+    payload = {
+        'destinatario':    datos['destinatario'],
+        'conversation_id': datos['conversation_id'],
+        'message_id':      datos['message_id'],
+        'cuerpo':          texto,
+        'adjuntos':        adjuntos,
+    }
+
+    try:
+        r = requests.post(url, json=payload, timeout=60, verify=False)
+        r.raise_for_status()
+        return JsonResponse({'ok': True})
+    except requests.Timeout:
+        return JsonResponse({'error': 'Tiempo de espera agotado. Inténtalo de nuevo.'}, status=504)
+    except Exception as e:
+        return JsonResponse({'error': f'Error al enviar: {e}'}, status=500)
 
 
 @login_required

@@ -24,6 +24,10 @@
 
 ---
 
+> **Última actualización:** 2026-04-22 — Envío de email de respuesta al cliente con adjuntos
+
+---
+
 ## 1. Visión general del proyecto
 
 El proyecto es una aplicación web Django con **dos portales diferenciados**:
@@ -102,8 +106,9 @@ AZURE_CLIENT_SECRET = os.getenv('AZURE_CLIENT_SECRET', '')
 AZURE_TENANT_ID     = os.getenv('AZURE_TENANT_ID', '')
 DATAVERSE_URL       = os.getenv('DATAVERSE_URL', '')
 
-# Power Automate (portal de clientes)
+# Power Automate
 POWER_AUTOMATE_INCIDENCIAS_URL = os.getenv('POWER_AUTOMATE_INCIDENCIAS_URL', '')
+POWER_AUTOMATE_EMAIL_REPLY_URL = os.getenv('POWER_AUTOMATE_EMAIL_REPLY_URL', '')
 ```
 
 ### `ProyectoExportacionDjango/urls.py`
@@ -134,6 +139,7 @@ urlpatterns = [
 | `/incidencia/<id>/` | `detalle_incidencia` | `comercial:detalle_incidencia` |
 | `/incidencia/<id>/gravedades/` | `actualizar_gravedades` | `comercial:actualizar_gravedades` |
 | `/incidencia/<id>/derivar-calidad/` | `derivar_calidad` | `comercial:derivar_calidad` |
+| `/incidencia/<id>/enviar-respuesta/` | `enviar_respuesta` | `comercial:enviar_respuesta` |
 
 ### Vistas (`comercial/views.py`)
 
@@ -159,6 +165,14 @@ urlpatterns = [
 - Recibe `{texto, tono, cliente, gravedad, causas}` en JSON
 - Llama al endpoint interno de IA (ver sección 7)
 - Devuelve `{"texto": "texto reescrito"}` que el JS inyecta en el textarea sin recargar la página
+
+**`enviar_respuesta`** (POST, multipart/form-data, AJAX)
+- Recibe `texto` (cuerpo del email) y `adjuntos[]` (archivos opcionales, acumulados en frontend)
+- Lee `destinatario`, `conversation_id` y `message_id` frescos de Dataverse con `get_ticket_reply_data`
+- Valida que el ticket tenga `message_id` (solo tienen uno los tickets que entraron por email)
+- Codifica cada adjunto en base64 (`Name` + `ContentBytes`) y llama a `POWER_AUTOMATE_EMAIL_REPLY_URL`
+- El flow de Power Automate hace el reply al hilo de email original usando `message_id`
+- Devuelve `{"ok": true}` en éxito o `{"error": "..."}` con descripción legible en caso de fallo
 
 **`derivar_calidad`** (POST, AJAX)
 - Pendiente de implementar campo en Dataverse. Actualmente devuelve `{"ok": true}` sin acción real.
@@ -239,7 +253,8 @@ GRAVEDAD_MAP = {
 | Método | Descripción |
 |--------|-------------|
 | `get_tickets()` | Lista todas las incidencias (dashboard) |
-| `get_ticket_detail(ticket_id)` | Detalle completo: incidencia + causas + materiales agrupados por gravedad |
+| `get_ticket_detail(ticket_id)` | Detalle completo: incidencia + causas + materiales agrupados por gravedad. Incluye `conversation_id` y `message_id` |
+| `get_ticket_reply_data(ticket_id)` | Devuelve solo `destinatario`, `conversation_id` y `message_id` — datos mínimos para responder por email |
 | `get_causes_catalog()` | Catálogo de causas activas ordenadas por `gfit_orden` |
 | `update_ticket(ticket_id, datos)` | PATCH genérico sobre un ticket |
 | `update_material(material_id, gravedad_str, causa_id)` | Actualiza gravedad y/o causa de un material |
@@ -267,7 +282,8 @@ GRAVEDAD_MAP = {
 {
     'incidencia': {
         'id': '...', 'titulo': '...', 'cliente': '...', 'correo': '...',
-        'empresa': '...', 'idioma': '...', 'estado': 'Pendiente', 'fecha': 'YYYY-MM-DD'
+        'empresa': '...', 'idioma': '...', 'estado': 'Pendiente', 'fecha': 'YYYY-MM-DD',
+        'conversation_id': '...', 'message_id': '...'
     },
     'grupos': [
         {
@@ -362,6 +378,39 @@ Los productos se agrupan por causa antes de enviar. Si `POWER_AUTOMATE_INCIDENCI
 
 ---
 
+### Respuesta por email al cliente (portal comercial)
+
+- **Variable de entorno**: `POWER_AUTOMATE_EMAIL_REPLY_URL`
+- **Vista**: `comercial:enviar_respuesta` (POST multipart/form-data)
+- **Campos del formulario**: `texto` (string) + `adjuntos[]` (archivos, opcional)
+- **Payload enviado al flow**:
+```json
+{
+  "destinatario":    "cliente@ejemplo.com",
+  "conversation_id": "CONV-2026-001",
+  "message_id":      "AAMk...",
+  "cuerpo":          "Estimado/a cliente...",
+  "adjuntos": [
+    { "Name": "informe.pdf", "ContentBytes": "<base64>" }
+  ]
+}
+```
+
+Los adjuntos se envían con los campos `Name` y `ContentBytes` (base64) directamente en el formato que espera el conector de Office 365 Outlook de Power Automate.
+
+**Restricción**: solo funcionan los tickets que llegaron por email (tienen `gfit_messageid` en Dataverse). Los tickets creados manualmente no tienen `message_id` y la vista devuelve un error descriptivo.
+
+**Flow de Power Automate** (`POWER_AUTOMATE_EMAIL_REPLY_URL`):
+
+| Acción | Detalle |
+|--------|---------|
+| Trigger HTTP | Recibe el JSON anterior. Trigger público (sin auth Azure AD) |
+| Select | Transforma `adjuntos` aplicando `base64ToBinary(item()['ContentBytes'])` a cada elemento |
+| Reply to an email (V3) | `Message Id` = `message_id`, `Body` = `cuerpo`, `To` = `destinatario`, `Attachments` = output del Select |
+| Response 200 | Confirma a Django que el envío fue correcto |
+
+---
+
 ## 9. Autenticación
 
 ### Situación actual
@@ -444,6 +493,12 @@ Funciones principales:
 - **`ajustarTono(tono, gravedad)`**: agrupa las filas del grupo por causa seleccionada, envía el texto y contexto al endpoint de IA, actualiza el textarea con la respuesta
 - **`derivarCalidad()`**: llama a `/incidencia/<id>/derivar-calidad/` (pendiente de implementación real)
 - **`colorearGravedad(el)`**: aplica clase CSS (`gravedad-grave`, `gravedad-moderada`, `gravedad-leve`) al select de gravedad
+- **`agregarAdjuntos(gravedadId)`**: añade los archivos seleccionados al array `archivosAcumulados[gravedadId]` sin reemplazar los anteriores; resetea el input para permitir volver a seleccionar
+- **`renderizarAdjuntos(gravedadId)`**: dibuja los archivos acumulados como badges con botón × para eliminar individualmente
+- **`eliminarAdjunto(gravedadId, idx)`**: elimina un archivo del array acumulado por índice y re-renderiza
+- **`enviarRespuesta(gravedad)`**: envía el texto del textarea y todos los archivos acumulados via `multipart/form-data` a `/incidencia/<id>/enviar-respuesta/`; vacía la lista de adjuntos y muestra alerta de éxito o error
+
+**Variable global `archivosAcumulados`**: objeto JS `{ gravedadId: [File, ...] }` que mantiene los archivos añadidos por el usuario para cada grupo antes de enviar. Se limpia tras un envío exitoso.
 
 Preselección de causa: se hace por **ID del catálogo** (`data-causa-catalog-id`) y usa el nombre como fallback. Esto garantiza la selección correcta aunque el `gfit_name` de la ticket_cause no coincida exactamente con `gfit_nombrecausa` del catálogo.
 
@@ -493,6 +548,22 @@ POST /ajustar-tono/  (AJAX, JSON)
   → JS actualiza el textarea sin recargar la página
 ```
 
+### Comercial envía la respuesta por email
+
+```
+POST /incidencia/<guid>/enviar-respuesta/  (multipart/form-data)
+  → enviar_respuesta()
+      → valida que 'texto' no esté vacío
+      → DataverseClient().get_ticket_reply_data(incidencia_id)
+          → GET gfit_qlt_tickets(<id>)?$select=gfit_correocliente,gfit_conversationid,gfit_messageid
+      → valida que message_id no esté vacío (tickets sin email de origen no soportados)
+      → codifica adjuntos recibidos en base64 {Name, ContentBytes}
+      → POST POWER_AUTOMATE_EMAIL_REPLY_URL
+          → {destinatario, conversation_id, message_id, cuerpo, adjuntos:[{Name, ContentBytes}]}
+      → JsonResponse({'ok': True})
+  → JS limpia lista de adjuntos y muestra alerta de éxito
+```
+
 ### Cliente envía una incidencia
 
 ```
@@ -517,6 +588,7 @@ Almacenadas en `.env` en la raíz del proyecto. **No se suben a git**.
 | `AZURE_TENANT_ID` | Tenant ID de la organización Azure |
 | `DATAVERSE_URL` | URL base de la organización Dataverse (ej. `https://gf-it-dev.crm4.dynamics.com`) |
 | `POWER_AUTOMATE_INCIDENCIAS_URL` | URL del flujo de Power Automate para creación de incidencias (portal clientes) |
+| `POWER_AUTOMATE_EMAIL_REPLY_URL` | URL del flujo de Power Automate para responder por email al cliente (portal comercial). El trigger debe ser público (sin auth Azure AD) |
 
 ---
 
@@ -566,5 +638,5 @@ Definidas en `requirements.txt`. Las principales:
 | Login con Microsoft SSO | Configuración Azure AD (distinta a la de Dataverse) | `comercial/views.py`, `settings.py` |
 | Derivar a Calidad (guardar en Dataverse) | Definir campo en Dataverse | `DataverseClient` + `comercial/views.py:derivar_calidad` |
 | Marcar incidencia como Finalizada | Pendiente de diseño | `comercial/views.py` + nuevo endpoint |
-| Enviar email al cliente | Pendiente de diseño | `comercial/views.py` + integración (Power Automate o SMTP) |
+| Enviar email desde ticket sin `message_id` | Tickets creados manualmente no tienen hilo de email origen | Habría que crear un email nuevo en lugar de reply |
 | Adaptación responsive móvil/tablet | — | Templates CSS |

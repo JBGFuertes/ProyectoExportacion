@@ -96,17 +96,20 @@ class DataverseClient:
         # 1. Ticket
         t = self._get(f'gfit_qlt_tickets({ticket_id})', params={
             '$select': 'gfit_qlt_ticketid,gfit_name,gfit_correocliente,gfit_estado,'
-                       'gfit_nombreempresa,gfit_empresa,gfit_idioma,createdon',
+                       'gfit_nombreempresa,gfit_empresa,gfit_idioma,createdon,'
+                       'gfit_conversationid,gfit_messageid',
         })
         incidencia = {
-            'id':      t['gfit_qlt_ticketid'],
-            'titulo':  t.get('gfit_name', ''),
-            'cliente': t.get('gfit_correocliente', ''),
-            'correo':  t.get('gfit_correocliente', ''),
-            'empresa': t.get('gfit_nombreempresa', '') or t.get('gfit_empresa', ''),
-            'idioma':  t.get('gfit_idioma', ''),
-            'estado':  ESTADO_MAP.get(t.get('gfit_estado'), 'Pendiente'),
-            'fecha':   (t.get('createdon') or '')[:10],
+            'id':              t['gfit_qlt_ticketid'],
+            'titulo':          t.get('gfit_name', ''),
+            'cliente':         t.get('gfit_correocliente', ''),
+            'correo':          t.get('gfit_correocliente', ''),
+            'empresa':         t.get('gfit_nombreempresa', '') or t.get('gfit_empresa', ''),
+            'idioma':          t.get('gfit_idioma', ''),
+            'estado':          ESTADO_MAP.get(t.get('gfit_estado'), 'Pendiente'),
+            'fecha':           (t.get('createdon') or '')[:10],
+            'conversation_id': t.get('gfit_conversationid', ''),
+            'message_id':      t.get('gfit_messageid', ''),
         }
 
         # 2. Causas del ticket
@@ -176,15 +179,27 @@ class DataverseClient:
         causas = []
         for c in result.get('value', []):
             causas.append({
-                'id':       c['gfit_qlt_cause_catalogid'],
-                'nombre':   c.get('gfit_nombrecausa', ''),
-                'gravedad': GRAVEDAD_MAP.get(c.get('gfit_gravedad'), 'Leve'),
+                'id':            c['gfit_qlt_cause_catalogid'],
+                'nombre':        c.get('gfit_nombrecausa', ''),
+                'gravedad':      GRAVEDAD_MAP.get(c.get('gfit_gravedad'), 'Leve'),
+                'gravedad_code': c.get('gfit_gravedad', 347780000),
             })
         return causas
 
     # -------------------------------------------------------------------------
     # Actualizaciones
     # -------------------------------------------------------------------------
+
+    def get_ticket_reply_data(self, ticket_id):
+        """Devuelve los datos mínimos necesarios para responder al email de la incidencia."""
+        t = self._get(f'gfit_qlt_tickets({ticket_id})', params={
+            '$select': 'gfit_correocliente,gfit_conversationid,gfit_messageid',
+        })
+        return {
+            'destinatario':    t.get('gfit_correocliente', ''),
+            'conversation_id': t.get('gfit_conversationid', ''),
+            'message_id':      t.get('gfit_messageid', ''),
+        }
 
     def update_ticket(self, ticket_id, datos):
         self._patch(f'gfit_qlt_tickets({ticket_id})', datos)
