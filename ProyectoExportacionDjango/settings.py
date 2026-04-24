@@ -135,6 +135,18 @@ AZURE_TENANT_ID     = os.getenv('AZURE_TENANT_ID', '')
 AZURE_CLIENT_SECRET = os.getenv('AZURE_CLIENT_SECRET', '')
 DATAVERSE_URL       = os.getenv('DATAVERSE_URL', '')
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler'},
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
+
 # Autenticación
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'

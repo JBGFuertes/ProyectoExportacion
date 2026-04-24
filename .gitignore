@@ -28,3 +28,6 @@ staticfiles/
 # Archivos temporales del sistema
 *.tmp
 *.bak
+
+# Claude Code
+.claude/

@@ -96,18 +96,20 @@
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Causa <span class="text-danger">*</span></label>
-                                    <select name="p{{ forloop.counter0 }}_causa" class="form-select select-causa" required>
+                                    <select name="p{{ forloop.counter0 }}_causageneral" class="form-select select-causageneral" required
+                                            data-causa-original="{{ p.causa }}"
+                                            data-gravedad-original="{{ p.gravedad }}"
+                                            data-causageneral-original="{{ p.causageneral }}">
                                         <option value="">-- Selecciona causa --</option>
-                                        {% for causa in causas_catalogo %}
-                                        <option value="{{ causa.nombre }}"
-                                                data-gravedad="{{ causa.gravedad }}"
-                                                {% if p.causa == causa.nombre %}selected{% endif %}>
-                                            {{ causa.nombre }}
+                                        {% for cg in causas_generales %}
+                                        <option value="{{ cg }}" {% if p.causageneral == cg %}selected{% endif %}>
+                                            {{ cg }}
                                         </option>
                                         {% endfor %}
                                     </select>
                                 </div>
                             </div>
+                            <input type="hidden" name="p{{ forloop.counter0 }}_causa" value="{{ p.causa }}">
                             <input type="hidden" name="p{{ forloop.counter0 }}_gravedad" value="{{ p.gravedad }}">
                         </div>
                         {% endfor %}
@@ -130,14 +132,14 @@
 
 {% block extra_js %}
 <script>
-var CAUSAS_CATALOGO = {{ causas_catalogo_json|safe }};
+var CAUSAS_GENERALES = {{ causas_generales_json|safe }};
 var contadorProductos = document.querySelectorAll('.producto-fila').length;
 
 function buildCausaOptions(valorSeleccionado) {
     var html = '<option value="">-- Selecciona causa --</option>';
-    CAUSAS_CATALOGO.forEach(function(c) {
-        var sel = (c.nombre === valorSeleccionado) ? ' selected' : '';
-        html += '<option value="' + c.nombre + '" data-gravedad="' + c.gravedad + '"' + sel + '>' + c.nombre + '</option>';
+    CAUSAS_GENERALES.forEach(function(cg) {
+        var sel = (cg === valorSeleccionado) ? ' selected' : '';
+        html += '<option value="' + cg + '"' + sel + '>' + cg + '</option>';
     });
     return html;
 }
@@ -176,9 +178,10 @@ function añadirProducto() {
             <div class="col-md-3"><label class="form-label">Fecha de recibimiento</label><input type="date" name="pX_fecha" class="form-control"></div>
             <div class="col-md-6"><label class="form-label">Problema</label><input type="text" name="pX_problema" class="form-control" placeholder="Describe brevemente el problema"></div>
             <div class="col-md-6"><label class="form-label">Causa <span class="text-danger">*</span></label>
-                <select name="pX_causa" class="form-select select-causa" required>${buildCausaOptions('')}</select>
+                <select name="pX_causageneral" class="form-select select-causageneral" required>${buildCausaOptions('')}</select>
             </div>
         </div>
+        <input type="hidden" name="pX_causa" value="">
         <input type="hidden" name="pX_gravedad" value="">
     </div>`;
     document.getElementById('contenedor-productos').insertAdjacentHTML('beforeend', plantilla);
@@ -190,12 +193,21 @@ function eliminarProducto(btn) {
     actualizarNumeros();
 }
 
-// Al cambiar la causa, actualizar el campo oculto gravedad
+// Si el cliente elige una causageneral distinta a la original, borrar causa específica y gravedad
 document.addEventListener('change', function(e) {
-    if (!e.target.classList.contains('select-causa')) return;
-    var opt = e.target.options[e.target.selectedIndex];
-    var gravedad = opt ? (opt.getAttribute('data-gravedad') || '') : '';
-    e.target.closest('.producto-fila').querySelector('input[name$="_gravedad"]').value = gravedad;
+    if (!e.target.classList.contains('select-causageneral')) return;
+    var sel = e.target;
+    var fila = sel.closest('.producto-fila');
+    var causaOriginal   = sel.getAttribute('data-causa-original') || '';
+    var gravedadOriginal = sel.getAttribute('data-gravedad-original') || '';
+    var causageneralOriginal = sel.getAttribute('data-causageneral-original') || '';
+    if (sel.value !== causageneralOriginal) {
+        fila.querySelector('input[name$="_causa"]').value = '';
+        fila.querySelector('input[name$="_gravedad"]').value = '';
+    } else {
+        fila.querySelector('input[name$="_causa"]').value = causaOriginal;
+        fila.querySelector('input[name$="_gravedad"]').value = gravedadOriginal;
+    }
 });
 </script>
 {% endblock %}

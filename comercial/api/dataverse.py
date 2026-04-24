@@ -55,9 +55,12 @@ class DataverseClient:
             'Content-Type': 'application/json',
         }
 
-    def _get(self, endpoint, params=None):
+    def _get(self, endpoint, params=None, extra_headers=None):
         url = f'{self.base_url}/{endpoint}'
-        r = requests.get(url, headers=self._headers(), params=params, verify=False, timeout=30)
+        headers = self._headers()
+        if extra_headers:
+            headers.update(extra_headers)
+        r = requests.get(url, headers=headers, params=params, verify=False, timeout=30)
         r.raise_for_status()
         return r.json()
 
@@ -172,15 +175,19 @@ class DataverseClient:
 
     def get_causes_catalog(self):
         result = self._get('gfit_qlt_cause_catalogs', params={
-            '$select': 'gfit_qlt_cause_catalogid,gfit_nombrecausa,gfit_gravedad,gfit_orden',
+            '$select': 'gfit_qlt_cause_catalogid,gfit_nombrecausa,gfit_gravedad,gfit_orden,gfit_causageneral',
             '$filter': 'gfit_activo eq true',
             '$orderby': 'gfit_orden asc',
+        }, extra_headers={
+            'Prefer': 'odata.include-annotations="OData.Community.Display.V1.FormattedValue"',
         })
         causas = []
         for c in result.get('value', []):
             causas.append({
                 'id':            c['gfit_qlt_cause_catalogid'],
                 'nombre':        c.get('gfit_nombrecausa', ''),
+                'causageneral':  c.get('gfit_causageneral@OData.Community.Display.V1.FormattedValue', '')
+                                 or c.get('gfit_causageneral', ''),
                 'gravedad':      GRAVEDAD_MAP.get(c.get('gfit_gravedad'), 'Leve'),
                 'gravedad_code': c.get('gfit_gravedad', 347780000),
             })
@@ -241,12 +248,14 @@ class DataverseClient:
         location = r.headers.get('OData-EntityId', '') or r.headers.get('Location', '')
         return location.split('(')[-1].rstrip(')')
 
-    def update_material(self, material_id, gravedad_str, causa_id=None):
-        """Actualiza gravedad y opcionalmente la causa de un material."""
+    def update_material(self, material_id, gravedad_str, causa_id=None, problema=None):
+        """Actualiza gravedad y opcionalmente la causa y el problema de un material."""
         code = GRAVEDAD_REVERSE.get(gravedad_str)
         if code is None:
             raise ValueError(f'Gravedad no válida: {gravedad_str}')
         data = {'gfit_gravedad': code}
         if causa_id:
             data['gfit_qlt_ticket_causeID@odata.bind'] = f'/gfit_qlt_ticket_causes({causa_id})'
+        if problema is not None:
+            data['gfit_problema'] = problema
         self._patch(f'gfit_qlt_ticket_materials({material_id})', data)

@@ -1,0 +1,523 @@
+/* ==========================================================================
+   custom.css — RRHH Dashboard Alta
+   Paleta corporativa Grupo Fuertes: granate #572625 / #3e1b1b | dorado #bb9a24
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Reset y variables
+   -------------------------------------------------------------------------- */
+:root {
+  --color-primary:      #572625;
+  --color-primary-dark: #3e1b1b;
+  --color-gold:         #bb9a24;
+  --color-bg:           #f0f2f5;
+  --color-text:         #344767;
+  --color-text-muted:   #7b809a;
+  --color-border:       #d2d6da;
+  --color-card-bg:      #ffffff;
+  --sidebar-width:      260px;
+  --sidebar-collapsed:  72px;
+  --transition:         0.3s ease;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: 'Roboto', 'Segoe UI', sans-serif;
+  font-size: 14px;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+}
+
+/* --------------------------------------------------------------------------
+   Layout principal
+   -------------------------------------------------------------------------- */
+body {
+  display: flex;
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar
+   -------------------------------------------------------------------------- */
+#sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-width);
+  background: linear-gradient(195deg, #42424a, #191919);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  transition: width var(--transition);
+  overflow: hidden;
+}
+
+#sidebar.is-collapsed {
+  width: var(--sidebar-collapsed);
+}
+
+/* Botón toggle (logo) */
+.sidebar__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.sidebar__toggle img {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  flex-shrink: 0;
+}
+
+/* Info usuario */
+.sidebar__user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.sidebar__user .fas {
+  font-size: 1.4rem;
+  color: rgba(255, 255, 255, 0.7);
+  flex-shrink: 0;
+}
+
+.sidebar__user-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 1;
+  max-width: 200px;
+  transition: opacity var(--transition), max-width var(--transition);
+}
+
+/* Navegación */
+.sidebar__nav {
+  flex: 1;
+  padding: 12px 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Pie del sidebar */
+.sidebar__footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 8px 0;
+  flex-shrink: 0;
+}
+
+/* Opciones de menú */
+.sidebar-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 20px;
+  color: rgba(255, 255, 255, 0.72);
+  text-decoration: none;
+  border-radius: 8px;
+  margin: 2px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background var(--transition), color var(--transition);
+}
+
+.sidebar-option:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.sidebar-option.selected {
+  background: linear-gradient(195deg, var(--color-primary), var(--color-primary-dark));
+  color: #ffffff;
+  box-shadow: 0 4px 20px rgba(87, 38, 37, 0.5);
+}
+
+.sidebar-option .fas {
+  font-size: 1rem;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+.sidebar-option span {
+  font-size: 0.875rem;
+  font-weight: 500;
+  opacity: 1;
+  max-width: 200px;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity var(--transition), max-width var(--transition);
+}
+
+/* Estado colapsado */
+#sidebar.is-collapsed .sidebar__user-name {
+  opacity: 0;
+  max-width: 0;
+  pointer-events: none;
+}
+
+#sidebar.is-collapsed .sidebar-option span {
+  opacity: 0;
+  max-width: 0;
+  pointer-events: none;
+}
+
+#sidebar.is-collapsed .sidebar__user {
+  justify-content: center;
+  padding: 14px 0;
+}
+
+/* Iconos centrados cuando el sidebar está colapsado */
+#sidebar.is-collapsed .sidebar-option {
+  justify-content: center;
+  gap: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Contenido principal
+   -------------------------------------------------------------------------- */
+#content {
+  margin-left: var(--sidebar-width);
+  flex: 1;
+  min-height: 100vh;
+  padding: 28px 24px;
+  background-color: var(--color-bg);
+  transition: margin-left var(--transition);
+}
+
+body.sidebar-collapsed #content {
+  margin-left: var(--sidebar-collapsed);
+}
+
+/* --------------------------------------------------------------------------
+   Cabecera de página
+   -------------------------------------------------------------------------- */
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 4px;
+}
+
+.page-subtitle {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Tarjetas — estilo Material Dashboard
+   -------------------------------------------------------------------------- */
+.card {
+  background: var(--color-card-bg);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px 0 rgba(0,0,0,.14);
+  margin-bottom: 30px;
+  border: none;
+  position: relative;
+}
+
+/* Cabecera con icono flotante (card-header-icon) */
+.card .card-header {
+  padding: 15px 20px;
+  margin: 0;
+  border-radius: 3px 3px 0 0;
+  border-bottom: none;
+  background: transparent;
+}
+
+.card .card-header.card-header-icon {
+  padding-top: 10px;
+}
+
+.card .card-header.card-header-icon .card-icon {
+  border-radius: 6px;
+  background: linear-gradient(180deg, #572625 0%, #3e1b1b 100%);
+  padding: 14px;
+  margin-top: -20px;
+  margin-right: 15px;
+  float: left;
+  box-shadow: 0 4px 20px 0 rgba(0,0,0,.14), 0 7px 10px -5px rgba(87,38,37,.4);
+}
+
+.card .card-header.card-header-icon .card-icon .material-icons {
+  color: #fff;
+  font-size: 2rem;
+  display: block;
+}
+
+.card .card-header.card-header-icon .card-title {
+  /* margin-top: 10px;
+  margin-bottom: 3px; */
+  color: var(--color-text);
+  font-weight: 500;
+  font-size: 1.6rem;
+  min-height: 36px;
+  display: flex;
+  align-items: flex-end;
+}
+
+/* Body con clearfix para el float del icono */
+.card .card-body {
+  padding: 15px 10px 20px;
+}
+.card .card-body::after {
+  content: '';
+  display: table;
+  clear: both;
+}
+
+/* Wrapper DataTables */
+.material-datatables {
+  overflow-x: auto;
+}
+
+/* Cabecera de tabla Material */
+.material-datatables thead tr th {
+  background: #572625;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-bottom: none !important;
+  padding: 10px 14px;
+  white-space: nowrap;
+}
+.material-datatables thead tr th:first-child { border-top-left-radius: 4px; }
+.material-datatables thead tr th:last-child  { border-top-right-radius: 4px; }
+
+.material-datatables tbody td {
+  font-size: 0.875rem;
+  vertical-align: middle;
+  padding: 10px 14px;
+  border-top: 1px solid #f0f2f5;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+  background-color: rgba(87, 38, 37, 0.03);
+}
+
+.table-hover > tbody > tr:hover > * {
+  background-color: rgba(87, 38, 37, 0.07);
+}
+
+/* DataTables controles */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter,
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin-top: 10px;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 0.875rem;
+  min-width: 260px;
+}
+.dataTables_wrapper .dataTables_filter input:focus {
+  outline: none;
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 2px rgba(187, 154, 36, .15);
+}
+
+/* Cabecera heredada simple (alternativa sin icono) */
+.card-header-custom {
+  background: linear-gradient(195deg, var(--color-primary), var(--color-primary-dark));
+  color: #ffffff;
+  padding: 14px 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.card-body-custom {
+  padding: 20px;
+}
+
+/* --------------------------------------------------------------------------
+   Tabla de datos
+   -------------------------------------------------------------------------- */
+.table-responsive {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.data-table thead th {
+  background-color: #f8f9fa;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.data-table tbody tr {
+  border-bottom: 1px solid #f0f2f5;
+  transition: background var(--transition);
+}
+
+.data-table tbody tr:hover {
+  background-color: rgba(87, 38, 37, 0.04);
+}
+
+.data-table tbody td {
+  padding: 10px 14px;
+  color: var(--color-text);
+  vertical-align: middle;
+}
+
+.table-count {
+  margin-top: 12px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+/* --------------------------------------------------------------------------
+   Estado vacío
+   -------------------------------------------------------------------------- */
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--color-text-muted);
+}
+
+.empty-state .fas {
+  font-size: 3rem;
+  margin-bottom: 12px;
+  display: block;
+  color: var(--color-border);
+}
+
+.empty-state p {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Alertas
+   -------------------------------------------------------------------------- */
+.alert {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 0.875rem;
+}
+
+.alert-danger {
+  background-color: #fde8e8;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+}
+
+/* --------------------------------------------------------------------------
+   Botones
+   -------------------------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  border: none;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.btn-primary {
+  background: linear-gradient(195deg, var(--color-primary), var(--color-primary-dark));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(87, 38, 37, 0.35);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 6px 20px rgba(87, 38, 37, 0.5);
+  transform: translateY(-1px);
+  color: #fff;
+}
+
+/* Elemento informativo (no clicable) en el pie del sidebar */
+.sidebar-option--info {
+  cursor: default;
+  opacity: 0.6;
+  font-size: 0.8rem;
+}
+
+.sidebar-option--info:hover {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  #sidebar {
+    width: var(--sidebar-collapsed);
+  }
+
+  #content {
+    margin-left: var(--sidebar-collapsed);
+  }
+
+  #sidebar.is-collapsed {
+    width: 0;
+    padding: 0;
+  }
+
+  body.sidebar-collapsed #content {
+    margin-left: 0;
+  }
+
+  .sidebar__user-name,
+  .sidebar-option span {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #content {
+    padding: 16px;
+  }
+}

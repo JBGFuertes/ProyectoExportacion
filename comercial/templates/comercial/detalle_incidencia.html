@@ -110,7 +110,7 @@
                     <tbody>
                         {% for causa in grupo.causas %}
                         {% for p in causa.productos %}
-                        <tr>
+                        <tr data-problema="{{ p.problema }}" data-revisable="{% if p.revisable %}1{% else %}0{% endif %}">
                             <td>{{ p.nombre }}</td>
                             <td><code>{{ p.codigo }}</code></td>
                             <td>{{ p.cantidad }}</td>
@@ -120,6 +120,11 @@
                                 <span class="problema-texto" onclick="verProblema(this)">{{ p.problema }}</span>
                             </td>
                             <td>
+                                {% if p.revisable %}
+                                <span class="badge bg-warning text-dark d-block mb-1" title="El cliente modificó la causa general — revisar">
+                                    <i class="bi bi-exclamation-triangle-fill"></i> Revisar causa
+                                </span>
+                                {% endif %}
                                 <select class="form-select form-select-sm select-causa"
                                         style="min-width:140px"
                                         data-material-id="{{ p.id }}"
@@ -312,6 +317,7 @@ function guardarGravedadesGrupo(gravedad) {
         var causaNombre    = selCausa ? selCausa.value : '';
         var causaOpt       = selCausa ? selCausa.options[selCausa.selectedIndex] : null;
         var causaCatalogId = causaOpt ? (causaOpt.getAttribute('data-id') || '') : '';
+        var revisable = fila.getAttribute('data-revisable') === '1';
         productos.push({
             id:                selGrav.getAttribute('data-material-id') || '',
             codigo:            selGrav.getAttribute('data-codigo') || '',
@@ -320,6 +326,7 @@ function guardarGravedadesGrupo(gravedad) {
             causa_nombre:      causaNombre,
             causa_catalog_id:  causaCatalogId,
             causa_id_original: selCausa ? (selCausa.getAttribute('data-causa-id-original') || '') : '',
+            problema:          revisable ? (fila.getAttribute('data-problema') || '') : null,
         });
     });
 

@@ -1,7 +1,10 @@
 import json
+import logging
 import requests
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+logger = logging.getLogger(__name__)
 from django.conf import settings
 from django.shortcuts import render
 from django.contrib import messages
@@ -24,7 +27,7 @@ def _leer_productos_url(request):
             'lote':     request.GET.get(f'p{i}_lote', ''),
             'cantidad': request.GET.get(f'p{i}_cantidad', ''),
             'albaran':  request.GET.get(f'p{i}_albaran', ''),
-            'fecha':    request.GET.get(f'p{i}_fecha', ''),
+            'fecha':    (request.GET.get(f'p{i}_fecha', '') or '')[:10],
             'problema': request.GET.get(f'p{i}_problema', ''),
             'causa':    request.GET.get(f'p{i}_causa', ''),
             'gravedad': request.GET.get(f'p{i}_gravedad', ''),
@@ -38,19 +41,37 @@ def _leer_productos_post(request):
     productos = []
     i = 0
     while f'p{i}_codigo' in request.POST or f'p{i}_nombre' in request.POST:
+        gravedad_raw = request.POST.get(f'p{i}_gravedad', '').strip()
+        try:
+            gravedad = int(gravedad_raw)
+        except (ValueError, TypeError):
+            gravedad = None
         productos.append({
-            'codigo':   request.POST.get(f'p{i}_codigo', '').strip(),
-            'nombre':   request.POST.get(f'p{i}_nombre', '').strip(),
-            'lote':     request.POST.get(f'p{i}_lote', '').strip(),
-            'cantidad': request.POST.get(f'p{i}_cantidad', '').strip(),
-            'albaran':  request.POST.get(f'p{i}_albaran', '').strip(),
-            'fecha':    request.POST.get(f'p{i}_fecha', '').strip(),
-            'problema': request.POST.get(f'p{i}_problema', '').strip(),
-            'causa':    request.POST.get(f'p{i}_causa', '').strip(),
-            'gravedad': request.POST.get(f'p{i}_gravedad', '').strip(),
+            'codigo':       request.POST.get(f'p{i}_codigo', '').strip(),
+            'nombre':       request.POST.get(f'p{i}_nombre', '').strip(),
+            'lote':         request.POST.get(f'p{i}_lote', '').strip(),
+            'cantidad':     request.POST.get(f'p{i}_cantidad', '').strip(),
+            'albaran':      request.POST.get(f'p{i}_albaran', '').strip(),
+            'fecha':        request.POST.get(f'p{i}_fecha', '').strip(),
+            'problema':     request.POST.get(f'p{i}_problema', '').strip(),
+            'causageneral': request.POST.get(f'p{i}_causageneral', '').strip(),
+            'causa':        request.POST.get(f'p{i}_causa', '').strip(),
+            'gravedad':     gravedad,
         })
         i += 1
     return productos
+
+
+def _causas_generales_unicas(causas_catalogo):
+    """Devuelve lista ordenada de valores únicos de causageneral."""
+    seen = set()
+    result = []
+    for c in causas_catalogo:
+        cg = c.get('causageneral', '')
+        if cg and cg not in seen:
+            seen.add(cg)
+            result.append(cg)
+    return result
 
 
 def nueva_incidencia(request):
@@ -67,9 +88,10 @@ def nueva_incidencia(request):
             causas_catalogo = DataverseClient().get_causes_catalog()
         except Exception:
             causas_catalogo = []
+        causas_generales = _causas_generales_unicas(causas_catalogo)
         catalogo_ctx = {
-            'causas_catalogo':      causas_catalogo,
-            'causas_catalogo_json': json.dumps(causas_catalogo, ensure_ascii=False),
+            'causas_generales':      causas_generales,
+            'causas_generales_json': json.dumps(causas_generales, ensure_ascii=False),
         }
 
         if not all(identificacion.values()):
@@ -88,15 +110,47 @@ def nueva_incidencia(request):
                 **catalogo_ctx,
             })
 
-        # Agrupar productos por causa; gravedad va dentro de cada producto
+        # Lookup: causageneral → primera causa específica del catálogo (fallback si cliente cambió)
+        cg_a_primera_causa = {}
+        for c in causas_catalogo:
+            cg = c.get('causageneral', '')
+            if cg and cg not in cg_a_primera_causa:
+                cg_a_primera_causa[cg] = c['nombre']
+
+        SUFIJO_REVISAR = ' [REVISAR]'
+
+        # Agrupar por causa específica (que PA usa para buscar en Dataverse)
         causas_agrupadas = {}
         for p in productos:
-            clave = p['causa']
+            causa_especifica = p.get('causa', '')
+            causageneral     = p.get('causageneral', '')
+            cliente_modifico = not bool(causa_especifica) and bool(causageneral)
+
+            if cliente_modifico:
+                causa_especifica = cg_a_primera_causa.get(causageneral, causageneral)
+
+            clave = causa_especifica or causageneral or ''
             if clave not in causas_agrupadas:
-                causas_agrupadas[clave] = {'nombre': p['causa'], 'productos': []}
-            causas_agrupadas[clave]['productos'].append({
-                k: v for k, v in p.items() if k != 'causa'
-            })
+                causas_agrupadas[clave] = {
+                    'nombre':       causa_especifica,
+                    'causageneral': causageneral,
+                    'productos':    [],
+                }
+            problema = p.get('problema', '')
+            if cliente_modifico:
+                problema = problema + SUFIJO_REVISAR
+            producto_data = {
+                'codigo':   p.get('codigo', ''),
+                'nombre':   p.get('nombre', ''),
+                'lote':     p.get('lote', ''),
+                'cantidad': p.get('cantidad', ''),
+                'albaran':  p.get('albaran', ''),
+                'fecha':    p.get('fecha', ''),
+                'problema': problema,
+            }
+            if p.get('gravedad') is not None:
+                producto_data['gravedad'] = p['gravedad']
+            causas_agrupadas[clave]['productos'].append(producto_data)
 
         payload = {
             **identificacion,
@@ -104,11 +158,16 @@ def nueva_incidencia(request):
         }
 
         url = settings.POWER_AUTOMATE_INCIDENCIAS_URL
+        print('>>> PAYLOAD INCIDENCIA:', json.dumps(payload, ensure_ascii=False, indent=2))
         if url:
             try:
-                requests.post(url, json=payload, timeout=15, verify=False)
-            except Exception:
-                pass
+                r = requests.post(url, json=payload, timeout=30, verify=False)
+                print('>>> POWER AUTOMATE STATUS:', r.status_code)
+                print('>>> POWER AUTOMATE RESP:', r.text[:500])
+                logger.info('Power Automate incidencias → %s: %s', r.status_code, r.text[:300])
+            except Exception as e:
+                print('>>> POWER AUTOMATE ERROR:', e)
+                logger.error('Error llamando a Power Automate incidencias: %s', e)
 
         return render(request, 'clientes/nueva_incidencia.html', {'enviado': True})
 
@@ -125,11 +184,20 @@ def nueva_incidencia(request):
     except Exception:
         causas_catalogo = []
 
+    # Enriquecer productos del prefill: buscar causageneral y gravedad de la causa específica
+    causa_lookup = {c['nombre']: c for c in causas_catalogo}
+    for p in productos:
+        match = causa_lookup.get(p.get('causa', ''), {})
+        p['causageneral'] = match.get('causageneral', '')
+        p['gravedad']     = match.get('gravedad_code', p.get('gravedad', ''))
+
+    causas_generales = _causas_generales_unicas(causas_catalogo)
+
     return render(request, 'clientes/nueva_incidencia.html', {
-        'identificacion':      identificacion,
-        'productos':           productos,
-        'causas_catalogo':     causas_catalogo,
-        'causas_catalogo_json': json.dumps(causas_catalogo, ensure_ascii=False),
+        'identificacion':       identificacion,
+        'productos':            productos,
+        'causas_generales':     causas_generales,
+        'causas_generales_json': json.dumps(causas_generales, ensure_ascii=False),
     })
 
 

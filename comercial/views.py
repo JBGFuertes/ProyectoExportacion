@@ -76,6 +76,17 @@ def detalle_incidencia(request, incidencia_id):
     except Exception:
         causas_catalogo = []
 
+    # Detectar productos que el cliente modificó (sufijo ' [REVISAR]' en gfit_problema)
+    SUFIJO_REVISAR = ' [REVISAR]'
+    for grupo in detalle.get('grupos', []):
+        for causa in grupo.get('causas', []):
+            for m in causa.get('productos', []):
+                if m.get('problema', '').endswith(SUFIJO_REVISAR):
+                    m['revisable'] = True
+                    m['problema']  = m['problema'][:-len(SUFIJO_REVISAR)]
+                else:
+                    m['revisable'] = False
+
     # Mapeo nombre → ticket_cause_id (todas las causas del ticket, no solo las que tienen materiales)
     causa_id_por_nombre = detalle.get('all_ticket_causes', {})
 
@@ -125,7 +136,8 @@ def actualizar_gravedades(request, incidencia_id):
             if not causa_id and causa_nombre:
                 causa_id = client.create_ticket_cause(incidencia_id, causa_nombre, causa_catalog_id)
 
-            client.update_material(material_id, gravedad, causa_id or None)
+            problema = cambio.get('problema')  # None si no era revisable → no se toca gfit_problema
+            client.update_material(material_id, gravedad, causa_id or None, problema=problema)
 
             # Si el material cambió de causa, borrar la causa vieja si quedó sin materiales
             if causa_id_original and causa_id and causa_id_original != causa_id:
