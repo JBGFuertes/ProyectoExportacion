@@ -9,6 +9,7 @@ from django.conf import settings
 from django.shortcuts import render
 from django.contrib import messages
 from comercial.api.dataverse import DataverseClient
+from clientes.i18n import UI, get_lang
 
 
 def portal(request):
@@ -62,21 +63,25 @@ def _leer_productos_post(request):
     return productos
 
 
-def _causas_generales_unicas(causas_catalogo):
-    """Devuelve lista ordenada de valores únicos de causageneral."""
+def _causas_generales_bilingues(causas_catalogo):
+    """Devuelve lista ordenada de pares únicos {es, en} de causageneral."""
     seen = set()
     result = []
     for c in causas_catalogo:
-        cg = c.get('causageneral', '')
-        if cg and cg not in seen:
-            seen.add(cg)
-            result.append(cg)
+        es = c.get('causageneral', '')
+        en = c.get('causageneral_en', '') or es
+        if es and es not in seen:
+            seen.add(es)
+            result.append({'es': es, 'en': en})
     return result
 
 
 def nueva_incidencia(request):
     """Formulario para que el cliente registre una nueva incidencia."""
     if request.method == 'POST':
+        lang = get_lang(request)
+        t = UI[lang]
+
         identificacion = {
             'empresa':         request.POST.get('empresa', '').strip(),
             'correo':          request.POST.get('correo', '').strip(),
@@ -88,14 +93,14 @@ def nueva_incidencia(request):
             causas_catalogo = DataverseClient().get_causes_catalog()
         except Exception:
             causas_catalogo = []
-        causas_generales = _causas_generales_unicas(causas_catalogo)
+        causas_bilingues = _causas_generales_bilingues(causas_catalogo)
         catalogo_ctx = {
-            'causas_generales':      causas_generales,
-            'causas_generales_json': json.dumps(causas_generales, ensure_ascii=False),
+            'causas_bilingues':      causas_bilingues,
+            'causas_bilingues_json': json.dumps(causas_bilingues, ensure_ascii=False),
         }
 
-        if not all(identificacion.values()):
-            messages.error(request, 'Los campos Empresa, Correo y ConversationID son obligatorios.')
+        if not identificacion['empresa'] or not identificacion['correo']:
+            messages.error(request, t['err_fields'])
             return render(request, 'clientes/nueva_incidencia.html', {
                 'identificacion': identificacion,
                 'productos':      productos,
@@ -103,17 +108,17 @@ def nueva_incidencia(request):
             })
 
         if not productos:
-            messages.error(request, 'Añade al menos un producto.')
+            messages.error(request, t['err_products'])
             return render(request, 'clientes/nueva_incidencia.html', {
                 'identificacion': identificacion,
                 'productos':      productos,
                 **catalogo_ctx,
             })
 
-        # Lookup: causageneral → primera causa específica del catálogo (fallback si cliente cambió)
+        # Lookup: causageneral (ES, clave interna) → primera causa específica del catálogo
         cg_a_primera_causa = {}
         for c in causas_catalogo:
-            cg = c.get('causageneral', '')
+            cg = c.get('causageneral', '')  # siempre clave ES
             if cg and cg not in cg_a_primera_causa:
                 cg_a_primera_causa[cg] = c['nombre']
 
@@ -172,6 +177,8 @@ def nueva_incidencia(request):
         return render(request, 'clientes/nueva_incidencia.html', {'enviado': True})
 
     # GET: leer prefill de URL
+    get_lang(request)  # persiste ?lang= en sesión si viene en la URL
+
     identificacion = {
         'empresa':         request.GET.get('empresa', ''),
         'correo':          request.GET.get('correo', ''),
@@ -184,20 +191,20 @@ def nueva_incidencia(request):
     except Exception:
         causas_catalogo = []
 
-    # Enriquecer productos del prefill: buscar causageneral y gravedad de la causa específica
+    # Enriquecer productos del prefill: buscar causageneral (ES) y gravedad
     causa_lookup = {c['nombre']: c for c in causas_catalogo}
     for p in productos:
         match = causa_lookup.get(p.get('causa', ''), {})
         p['causageneral'] = match.get('causageneral', '')
         p['gravedad']     = match.get('gravedad_code', p.get('gravedad', ''))
 
-    causas_generales = _causas_generales_unicas(causas_catalogo)
+    causas_bilingues = _causas_generales_bilingues(causas_catalogo)
 
     return render(request, 'clientes/nueva_incidencia.html', {
-        'identificacion':       identificacion,
-        'productos':            productos,
-        'causas_generales':     causas_generales,
-        'causas_generales_json': json.dumps(causas_generales, ensure_ascii=False),
+        'identificacion':        identificacion,
+        'productos':             productos,
+        'causas_bilingues':      causas_bilingues,
+        'causas_bilingues_json': json.dumps(causas_bilingues, ensure_ascii=False),
     })
 
 

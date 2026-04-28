@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     # Apps propias
     'comercial',
     'clientes',
+    'calidad',
 ]
 
 MIDDLEWARE = [
@@ -68,6 +69,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'clientes.context_processors.clientes_i18n',
             ],
         },
     },
@@ -128,6 +130,9 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 POWER_AUTOMATE_TONO_URL        = os.getenv('POWER_AUTOMATE_TONO_URL', '')
 POWER_AUTOMATE_INCIDENCIAS_URL = os.getenv('POWER_AUTOMATE_INCIDENCIAS_URL', '')
 POWER_AUTOMATE_EMAIL_REPLY_URL = os.getenv('POWER_AUTOMATE_EMAIL_REPLY_URL', '')
+
+# Calidad — endpoint IA para generación de respuestas internas
+CALIDAD_AI_ENDPOINT = os.getenv('CALIDAD_AI_ENDPOINT', '')
 
 # Azure AD + Dataverse
 AZURE_CLIENT_ID     = os.getenv('AZURE_CLIENT_ID', '')

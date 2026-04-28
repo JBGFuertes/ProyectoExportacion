@@ -1,0 +1,152 @@
+{% extends 'calidad/base.html' %}
+
+{% block title %}Dashboard Calidad{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<style>
+    table.dataTable thead th.sorting::after,
+    table.dataTable thead th.sorting::before,
+    table.dataTable thead th.sorting_asc::after,
+    table.dataTable thead th.sorting_asc::before,
+    table.dataTable thead th.sorting_desc::after,
+    table.dataTable thead th.sorting_desc::before {
+        position: static !important;
+        display: inline-block;
+        margin-left: 4px;
+        color: rgba(255,255,255,.6);
+    }
+    table.dataTable thead th { background-color: var(--color-primary) !important; color: #fff !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-0 fw-bold" style="color:var(--color-text)">
+            <i class="bi bi-shield-check text-warning me-2"></i>Incidencias Derivadas a Calidad
+        </h4>
+        <p class="text-muted small mb-0">Productos marcados para revisión por el departamento de calidad</p>
+    </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4 col-6">
+        <div class="kpi-card" id="card-pendiente" onclick="filtrarEstado('Pendiente')">
+            <div class="kpi-card__icon kpi-card__icon--warning">
+                <i class="bi bi-clock-fill"></i>
+            </div>
+            <div>
+                <div class="kpi-card__value">{{ total_pendientes }}</div>
+                <div class="kpi-card__label">Pendientes</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 col-6">
+        <div class="kpi-card" id="card-procesando" onclick="filtrarEstado('Procesando')">
+            <div class="kpi-card__icon kpi-card__icon--primary">
+                <i class="bi bi-arrow-repeat"></i>
+            </div>
+            <div>
+                <div class="kpi-card__value">{{ total_procesando }}</div>
+                <div class="kpi-card__label">En proceso</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 col-6">
+        <div class="kpi-card" id="card-finalizada" onclick="filtrarEstado('Finalizada')">
+            <div class="kpi-card__icon kpi-card__icon--success">
+                <i class="bi bi-check-circle-fill"></i>
+            </div>
+            <div>
+                <div class="kpi-card__value">{{ total_finalizadas }}</div>
+                <div class="kpi-card__label">Finalizadas</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros rápidos -->
+<div class="mb-3 d-flex align-items-center gap-2">
+    <button class="btn btn-sm btn-outline-secondary" onclick="quitarFiltro()">
+        <i class="bi bi-grid"></i> Todas
+    </button>
+</div>
+
+<!-- Tabla -->
+<div class="table-responsive">
+    <table id="tabla-incidencias" class="table table-hover align-middle w-100">
+        <thead>
+            <tr>
+                <th>Caso</th>
+                <th>Cliente</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inc in incidencias %}
+            <tr data-estado="{{ inc.estado }}">
+                <td class="fw-500">{{ inc.titulo }}</td>
+                <td>
+                    <i class="bi bi-person" style="color:var(--color-primary)"></i> {{ inc.cliente }}
+                </td>
+                <td>
+                    {% if inc.estado == 'Pendiente' %}
+                        <span class="badge badge-pendiente">{{ inc.estado }}</span>
+                    {% elif inc.estado == 'Procesando' %}
+                        <span class="badge badge-procesando">{{ inc.estado }}</span>
+                    {% else %}
+                        <span class="badge badge-finalizada">{{ inc.estado }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ inc.fecha }}</td>
+                <td>
+                    <a href="{% url 'calidad:detalle_incidencia' inc.id %}" class="btn-corporativo btn-sm py-1 px-3" style="font-size:.75rem">
+                        <i class="bi bi-eye"></i> Ver
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+<script>
+var tabla;
+
+$(document).ready(function () {
+    tabla = $('#tabla-incidencias').DataTable({
+        language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
+        pageLength: 10,
+        order: [[3, 'desc']],
+        columnDefs: [{ orderable: false, targets: [2, 4] }],
+        info: false
+    });
+});
+
+function filtrarEstado(estado) {
+    var cardId = 'card-' + estado.toLowerCase();
+    document.querySelectorAll('.kpi-card').forEach(c => c.classList.remove('activo'));
+    document.getElementById(cardId).classList.add('activo');
+    $.fn.dataTable.ext.search.pop();
+    $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+        var node = tabla.row(dataIndex).node();
+        return node && node.getAttribute('data-estado') === estado;
+    });
+    tabla.draw();
+}
+
+function quitarFiltro() {
+    document.querySelectorAll('.kpi-card').forEach(c => c.classList.remove('activo'));
+    $.fn.dataTable.ext.search.pop();
+    tabla.draw();
+}
+</script>
+{% endblock %}

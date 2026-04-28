@@ -1,0 +1,425 @@
+{% extends 'calidad/base.html' %}
+
+{% block title %}{{ incidencia.titulo }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.badge-gravedad-grave    { background-color: rgba(220,53,69,.12);   color: #b02a37; border: 1.5px solid rgba(220,53,69,.4);  border-radius: 20px; font-size:.75rem; padding: 3px 10px; }
+.badge-gravedad-moderada { background-color: rgba(230,126,34,.12);  color: #b85c00; border: 1.5px solid rgba(230,126,34,.4); border-radius: 20px; font-size:.75rem; padding: 3px 10px; }
+.badge-gravedad-leve     { background-color: rgba(108,117,125,.12); color: #495057; border: 1.5px solid rgba(108,117,125,.4);border-radius: 20px; font-size:.75rem; padding: 3px 10px; }
+@media (max-width: 576px) {
+    .table.table-sm td, .table.table-sm th { padding: 0.25rem 0.35rem; vertical-align: middle; line-height: 1.2; }
+    .td-problema { max-width: 120px; }
+    .td-problema .problema-texto {
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden; cursor: pointer; text-decoration: underline dotted;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{% url 'calidad:dashboard' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Volver al dashboard
+    </a>
+</div>
+
+<!-- Cabecera del ticket -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-shield-check"></i> {{ incidencia.titulo }}</span>
+        {% if incidencia.estado == 'Pendiente' %}
+            <span class="badge bg-warning text-dark fs-6">{{ incidencia.estado }}</span>
+        {% elif incidencia.estado == 'Procesando' %}
+            <span class="badge bg-primary fs-6">{{ incidencia.estado }}</span>
+        {% else %}
+            <span class="badge bg-success fs-6">{{ incidencia.estado }}</span>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="text-muted small">Cliente</div>
+                <div class="fw-bold"><i class="bi bi-person"></i> {{ incidencia.cliente }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted small">Empresa</div>
+                <div><i class="bi bi-building"></i> {{ incidencia.empresa|default:"-" }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted small">Fecha de creación</div>
+                <div><i class="bi bi-calendar"></i> {{ incidencia.fecha }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted small">Idioma</div>
+                <div><i class="bi bi-translate"></i> {{ incidencia.idioma|default:"-" }}</div>
+            </div>
+        </div>
+        <div class="mt-3">
+            <span class="badge bg-warning text-dark">
+                <i class="bi bi-shield-fill-check me-1"></i>Incidencia derivada a Calidad
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Grupos por causa — solo productos derivados a calidad -->
+{% if grupos %}
+    {% for grupo in grupos %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-secondary text-white d-flex align-items-center gap-2">
+            <i class="bi bi-tag-fill"></i>
+            <strong>{{ grupo.causa_nombre }}</strong>
+            <span class="badge bg-white text-dark ms-1">
+                {{ grupo.subgrupos|length }} gravedad{{ grupo.subgrupos|length|pluralize:"es" }}
+            </span>
+        </div>
+        <div class="card-body">
+
+            {% for subgrupo in grupo.subgrupos %}
+            <div class="mb-4">
+                <h6 class="d-flex align-items-center gap-2 mb-2">
+                    <i class="bi bi-exclamation-circle-fill"></i>
+                    Gravedad {{ subgrupo.gravedad }}
+                    <span class="badge bg-light text-dark">{{ subgrupo.productos|length }} producto{{ subgrupo.productos|length|pluralize:"s" }}</span>
+                </h6>
+
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th>Código</th>
+                                <th>Cant. incid. / total</th>
+                                <th>Lote</th>
+                                <th>Albarán</th>
+                                <th>Problema</th>
+                                <th>Causa</th>
+                                <th>Gravedad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in subgrupo.productos %}
+                            <tr data-problema="{{ p.problema }}"
+                                data-revisable="{% if p.revisable %}1{% else %}0{% endif %}"
+                                data-causa-id="{{ p.causa_id }}"
+                                data-causa-nombre="{{ p.causa_nombre }}"
+                                data-causa-catalog-id="{{ p.causa_catalog_id }}"
+                                data-nombre="{{ p.nombre }}"
+                                data-cantidad="{{ p.cantidad }}">
+                                <td>
+                                    {% if p.revisable %}
+                                    <span class="badge bg-warning text-dark d-block mb-1" title="El cliente modificó la causa general — revisar">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> Revisar causa
+                                    </span>
+                                    {% endif %}
+                                    {{ p.nombre }}
+                                </td>
+                                <td><code>{{ p.codigo }}</code></td>
+                                <td>
+                                    <span>{{ p.cantidad }}</span>
+                                    {% if p.cantidad_total %}
+                                    <span class="text-muted"> / {{ p.cantidad_total }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ p.lote }}</td>
+                                <td>{{ p.albaran }}</td>
+                                <td class="td-problema">
+                                    <span class="problema-texto" onclick="verProblema(this)">{{ p.problema }}</span>
+                                </td>
+                                <td style="min-width:200px">
+                                    <div class="input-group input-group-sm mb-1">
+                                        <span class="input-group-text px-1 text-muted" style="font-size:.7rem;white-space:nowrap">General</span>
+                                        <select class="form-select form-select-sm select-causageneral"
+                                                data-causa-catalog-id-actual="{{ p.causa_catalog_id }}">
+                                            <!-- opciones inyectadas por JS -->
+                                        </select>
+                                    </div>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text px-1 text-muted" style="font-size:.7rem;white-space:nowrap">Específ.</span>
+                                        <select class="form-select form-select-sm select-causaespecifica"
+                                                data-material-id="{{ p.id }}"
+                                                data-codigo="{{ p.codigo }}"
+                                                data-causa-catalog-id="{{ p.causa_catalog_id }}"
+                                                data-causa-nombre="{{ p.causa_nombre }}"
+                                                data-causa-id-original="{{ p.causa_id }}"
+                                                data-sg-key="{{ subgrupo.sg_key }}">
+                                            <!-- opciones inyectadas por JS -->
+                                        </select>
+                                    </div>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm select-gravedad"
+                                            style="width:auto"
+                                            data-material-id="{{ p.id }}"
+                                            data-codigo="{{ p.codigo }}"
+                                            data-sg-key="{{ subgrupo.sg_key }}">
+                                        <option value="Leve"     {% if p.gravedad == 'Leve' %}selected{% endif %}>Leve</option>
+                                        <option value="Moderada" {% if p.gravedad == 'Moderada' %}selected{% endif %}>Moderada</option>
+                                        <option value="Grave"    {% if p.gravedad == 'Grave' %}selected{% endif %}>Grave</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Botón guardar cambios de causa/gravedad -->
+                <div class="mt-2 mb-3 d-flex align-items-center gap-2">
+                    <button class="btn-corporativo btn-sm btn-guardar-sg d-none"
+                            style="font-size:.75rem;padding:6px 14px"
+                            id="btn-guardar-{{ subgrupo.sg_key }}"
+                            onclick="guardarSubgrupo('{{ subgrupo.sg_key }}')">
+                        <i class="bi bi-save"></i> Guardar cambios
+                    </button>
+                    <span id="spinner-guardar-{{ subgrupo.sg_key }}" class="d-none text-muted">
+                        <span class="spinner-border spinner-border-sm"></span> Guardando...
+                    </span>
+                </div>
+
+                <hr>
+
+                <!-- Editor de respuesta calidad -->
+                <div class="mt-2">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-file-earmark-text"></i>
+                        Respuesta Calidad — {{ grupo.causa_nombre }} / {{ subgrupo.gravedad }}
+                    </label>
+                    <textarea id="texto-calidad-{{ subgrupo.sg_key }}"
+                              class="form-control mb-2" rows="6"
+                    ></textarea>
+
+                    <div class="d-flex gap-2 flex-wrap align-items-center">
+                        <button class="btn-corporativo"
+                                style="font-size:.75rem;padding:6px 14px"
+                                onclick="generarRespuesta('{{ subgrupo.sg_key }}', '{{ grupo.causa_nombre|escapejs }}', '{{ subgrupo.gravedad }}')">
+                            <i class="bi bi-stars"></i> Generar respuesta
+                        </button>
+                        <span id="spinner-calidad-{{ subgrupo.sg_key }}" class="d-none text-muted">
+                            <span class="spinner-border spinner-border-sm"></span> La IA está pensando...
+                        </span>
+                    </div>
+                    <div id="error-calidad-{{ subgrupo.sg_key }}" class="alert alert-danger d-none mt-2"></div>
+                </div>
+
+            </div>
+            {% endfor %}
+
+        </div>
+    </div>
+    {% endfor %}
+
+{% else %}
+<div class="alert alert-info">Esta incidencia no tiene productos derivados a calidad.</div>
+{% endif %}
+
+<!-- Modal problema completo (solo móvil) -->
+<div class="modal fade" id="modalProblema" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-chat-text"></i> Problema</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalProblemaTexto"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast confirmación guardado -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100">
+    <div id="toast-guardado" class="toast align-items-center text-bg-success border-0" role="alert" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="bi bi-check-circle-fill"></i> Cambios guardados correctamente.
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var CAUSAS_CATALOGO = {{ causas_catalogo_json|safe }};
+var CAUSA_ID_MAP    = {{ causa_id_map_json|safe }};
+
+var CAUSAS_GENERALES_UNICAS = (function() {
+    var seen = {}, list = [];
+    CAUSAS_CATALOGO.forEach(function(c) {
+        if (c.causageneral && !seen[c.causageneral]) {
+            seen[c.causageneral] = true;
+            list.push(c.causageneral);
+        }
+    });
+    return list;
+})();
+
+function buildCausaGeneralOptions(seleccionada) {
+    var html = '<option value="">-- General --</option>';
+    CAUSAS_GENERALES_UNICAS.forEach(function(cg) {
+        html += '<option value="' + cg + '"' + (cg === seleccionada ? ' selected' : '') + '>' + cg + '</option>';
+    });
+    return html;
+}
+
+function buildCausaEspecificaOptions(causaGeneral, catalogIdActual, nombreActual) {
+    var html = '<option value="">-- Específica --</option>';
+    CAUSAS_CATALOGO.forEach(function(c) {
+        if (c.causageneral !== causaGeneral) return;
+        var matched = catalogIdActual ? (c.id === catalogIdActual) : (c.nombre === nombreActual);
+        html += '<option value="' + c.nombre + '" data-id="' + c.id + '" data-gravedad="' + c.gravedad + '"'
+              + (matched ? ' selected' : '') + '>' + c.nombre + '</option>';
+    });
+    return html;
+}
+
+// Inicializar selects de causa al cargar
+document.querySelectorAll('.select-causaespecifica').forEach(function(selEsp) {
+    var catalogId    = selEsp.getAttribute('data-causa-catalog-id') || '';
+    var nombre       = selEsp.getAttribute('data-causa-nombre') || '';
+    var causaGeneral = '';
+    CAUSAS_CATALOGO.forEach(function(c) {
+        if (catalogId ? c.id === catalogId : c.nombre === nombre) causaGeneral = c.causageneral;
+    });
+    var fila   = selEsp.closest('tr');
+    var selGen = fila.querySelector('.select-causageneral');
+    selGen.innerHTML = buildCausaGeneralOptions(causaGeneral);
+    selEsp.innerHTML = buildCausaEspecificaOptions(causaGeneral, catalogId, nombre);
+});
+
+// Colorear selects de gravedad al cargar
+document.querySelectorAll('.select-gravedad').forEach(function(el) { colorearGravedad(el); });
+
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('select-gravedad')) {
+        colorearGravedad(e.target);
+        mostrarBotonGuardar(e.target.getAttribute('data-sg-key'));
+    }
+    if (e.target.classList.contains('select-causageneral')) {
+        var fila   = e.target.closest('tr');
+        var selEsp = fila.querySelector('.select-causaespecifica');
+        selEsp.innerHTML = buildCausaEspecificaOptions(e.target.value, '', '');
+        mostrarBotonGuardar(selEsp.getAttribute('data-sg-key'));
+    }
+    if (e.target.classList.contains('select-causaespecifica')) {
+        var opt = e.target.options[e.target.selectedIndex];
+        if (opt && opt.getAttribute('data-gravedad')) {
+            var selGrav = e.target.closest('tr').querySelector('.select-gravedad');
+            selGrav.value = opt.getAttribute('data-gravedad');
+            colorearGravedad(selGrav);
+        }
+        mostrarBotonGuardar(e.target.getAttribute('data-sg-key'));
+    }
+});
+
+function mostrarBotonGuardar(sgKey) {
+    var btn = document.getElementById('btn-guardar-' + sgKey);
+    if (btn) btn.classList.remove('d-none');
+}
+
+function colorearGravedad(el) {
+    var mapa = { 'Grave': 'gravedad-grave', 'Moderada': 'gravedad-moderada', 'Leve': 'gravedad-leve' };
+    el.classList.remove('gravedad-grave', 'gravedad-moderada', 'gravedad-leve');
+    el.classList.add(mapa[el.value] || '');
+}
+
+function guardarSubgrupo(sgKey) {
+    var tbody = document.querySelector('[data-sg-key="' + sgKey + '"].select-causaespecifica')
+                        ?.closest('tbody');
+    if (!tbody) return;
+
+    var productos = [];
+    tbody.querySelectorAll('tr').forEach(function(fila) {
+        var selGrav = fila.querySelector('.select-gravedad');
+        var selEsp  = fila.querySelector('.select-causaespecifica');
+        if (!selGrav) return;
+        var causaNombre     = selEsp ? selEsp.value : (fila.getAttribute('data-causa-nombre') || '');
+        var causaOpt        = selEsp ? selEsp.options[selEsp.selectedIndex] : null;
+        var causaCatalogId  = causaOpt ? (causaOpt.getAttribute('data-id') || '') : (fila.getAttribute('data-causa-catalog-id') || '');
+        var causaIdOriginal = selEsp ? (selEsp.getAttribute('data-causa-id-original') || '') : '';
+        var causaId         = CAUSA_ID_MAP[causaNombre] || '';
+        var revisable       = fila.getAttribute('data-revisable') === '1';
+        productos.push({
+            id:                selGrav.getAttribute('data-material-id') || '',
+            codigo:            selGrav.getAttribute('data-codigo') || '',
+            gravedad:          selGrav.value,
+            causa_id:          causaId,
+            causa_nombre:      causaNombre,
+            causa_catalog_id:  causaCatalogId,
+            causa_id_original: causaIdOriginal,
+            problema:          revisable ? (fila.getAttribute('data-problema') || '') : null,
+        });
+    });
+
+    var btn     = document.getElementById('btn-guardar-' + sgKey);
+    var spinner = document.getElementById('spinner-guardar-' + sgKey);
+    btn.disabled = true;
+    if (spinner) spinner.classList.remove('d-none');
+
+    fetch("{% url 'calidad:actualizar_gravedades' incidencia.id %}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify({ productos: productos }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            var toast = new bootstrap.Toast(document.getElementById('toast-guardado'));
+            toast.show();
+            btn.classList.add('d-none');
+        } else {
+            alert(data.error || 'Error al guardar.');
+        }
+    })
+    .catch(() => alert('Error de conexión.'))
+    .finally(() => {
+        btn.disabled = false;
+        if (spinner) spinner.classList.add('d-none');
+    });
+}
+
+function verProblema(el) {
+    if (window.innerWidth > 576) return;
+    document.getElementById('modalProblemaTexto').textContent = el.textContent;
+    new bootstrap.Modal(document.getElementById('modalProblema')).show();
+}
+
+function generarRespuesta(sgKey, causaNombre, gravedad) {
+    var textarea = document.getElementById('texto-calidad-' + sgKey);
+    var spinner  = document.getElementById('spinner-calidad-' + sgKey);
+    var errorDiv = document.getElementById('error-calidad-' + sgKey);
+
+    spinner.classList.remove('d-none');
+    errorDiv.classList.add('d-none');
+
+    fetch("{% url 'calidad:generar_respuesta' %}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify({
+            texto:    textarea.value.trim() || causaNombre,
+            cliente:  '{{ incidencia.cliente|escapejs }}',
+            idioma:   '{{ incidencia.idioma|escapejs }}',
+            gravedad: gravedad,
+            causas:   [{ nombre: causaNombre }],
+        }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.texto) {
+            textarea.value = data.texto;
+        } else {
+            errorDiv.textContent = data.error || 'Error desconocido.';
+            errorDiv.classList.remove('d-none');
+        }
+    })
+    .catch(() => {
+        errorDiv.textContent = 'Error de conexión.';
+        errorDiv.classList.remove('d-none');
+    })
+    .finally(() => spinner.classList.add('d-none'));
+}
+</script>
+{% endblock %}

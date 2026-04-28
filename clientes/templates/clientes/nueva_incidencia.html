@@ -1,6 +1,6 @@
 {% extends 'clientes/base.html' %}
 
-{% block title %}Nueva Incidencia{% endblock %}
+{% block title %}{{ t.page_title }}{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -9,11 +9,11 @@
         {% if enviado %}
         <div class="card shadow-sm text-center p-5">
             <i class="bi bi-check-circle-fill text-success fs-1 mb-3"></i>
-            <h4 class="fw-bold">Incidencia registrada</h4>
-            <p class="text-muted">Hemos recibido tu incidencia. En breve nos pondremos en contacto contigo.</p>
+            <h4 class="fw-bold">{{ t.success_title }}</h4>
+            <p class="text-muted">{{ t.success_msg }}</p>
             <div class="d-flex gap-2 justify-content-center mt-3">
-                <a href="{% url 'clientes:nueva_incidencia' %}" class="btn btn-outline-dark">Registrar otra</a>
-                <a href="{% url 'clientes:mis_incidencias' %}" class="btn btn-dark">Ver mis incidencias</a>
+                <a href="{% url 'clientes:nueva_incidencia' %}" class="btn btn-outline-dark">{{ t.btn_another }}</a>
+                <a href="{% url 'clientes:mis_incidencias' %}" class="btn btn-dark">{{ t.btn_view_mine }}</a>
             </div>
         </div>
 
@@ -24,16 +24,16 @@
             <!-- SECCIÓN 1: Identificación -->
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-dark text-white">
-                    <i class="bi bi-person-badge"></i> Identificación
+                    <i class="bi bi-person-badge"></i> {{ t.section_id }}
                 </div>
                 <div class="card-body p-4">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label">Nombre de su empresa <span class="text-danger">*</span></label>
+                            <label class="form-label">{{ t.label_company }} <span class="text-danger">*</span></label>
                             <input type="text" name="empresa" class="form-control" value="{{ identificacion.empresa }}" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Correo electrónico <span class="text-danger">*</span></label>
+                            <label class="form-label">{{ t.label_email }} <span class="text-danger">*</span></label>
                             <input type="email" name="correo" class="form-control" value="{{ identificacion.correo }}" required>
                         </div>
                         <input type="hidden" name="conversation_id" value="{{ identificacion.conversation_id }}">
@@ -44,9 +44,9 @@
             <!-- SECCIÓN 2: Productos -->
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-box-seam"></i> Productos afectados</span>
+                    <span><i class="bi bi-box-seam"></i> {{ t.section_products }}</span>
                     <button type="button" class="btn btn-outline-light btn-sm" onclick="añadirProducto()">
-                        <i class="bi bi-plus-circle"></i> Añadir producto
+                        <i class="bi bi-plus-circle"></i> {{ t.btn_add_product }}
                     </button>
                 </div>
                 <div class="card-body p-4">
@@ -54,7 +54,7 @@
                         {% for p in productos %}
                         <div class="producto-fila border rounded p-3 mb-3 position-relative" data-index="{{ forloop.counter0 }}">
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <strong class="text-muted">Producto {{ forloop.counter }}</strong>
+                                <strong class="text-muted">{{ t.product_n }} {{ forloop.counter }}</strong>
                                 {% if forloop.counter > 1 %}
                                 <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarProducto(this)">
                                     <i class="bi bi-trash"></i>
@@ -67,43 +67,43 @@
                             </div>
                             <div class="row g-3">
                                 <div class="col-md-3">
-                                    <label class="form-label">Código producto</label>
+                                    <label class="form-label">{{ t.label_code }}</label>
                                     <input type="text" name="p{{ forloop.counter0 }}_codigo" class="form-control" value="{{ p.codigo }}">
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label">Producto</label>
+                                    <label class="form-label">{{ t.label_product }}</label>
                                     <input type="text" name="p{{ forloop.counter0 }}_nombre" class="form-control" value="{{ p.nombre }}">
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label">Lote</label>
+                                    <label class="form-label">{{ t.label_lot }}</label>
                                     <input type="text" name="p{{ forloop.counter0 }}_lote" class="form-control" value="{{ p.lote }}">
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label">Cantidad afectada</label>
+                                    <label class="form-label">{{ t.label_qty }}</label>
                                     <input type="text" name="p{{ forloop.counter0 }}_cantidad" class="form-control" value="{{ p.cantidad }}">
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label">Albarán</label>
+                                    <label class="form-label">{{ t.label_note }}</label>
                                     <input type="text" name="p{{ forloop.counter0 }}_albaran" class="form-control" value="{{ p.albaran }}">
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label">Fecha de recibimiento</label>
+                                    <label class="form-label">{{ t.label_date }}</label>
                                     <input type="date" name="p{{ forloop.counter0 }}_fecha" class="form-control" value="{{ p.fecha }}">
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label">Problema</label>
-                                    <input type="text" name="p{{ forloop.counter0 }}_problema" class="form-control" value="{{ p.problema }}" placeholder="Describe brevemente el problema">
+                                    <label class="form-label">{{ t.label_problem }}</label>
+                                    <input type="text" name="p{{ forloop.counter0 }}_problema" class="form-control" value="{{ p.problema }}" placeholder="{{ t.ph_problem }}">
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label">Causa <span class="text-danger">*</span></label>
+                                    <label class="form-label">{{ t.label_cause }} <span class="text-danger">*</span></label>
                                     <select name="p{{ forloop.counter0 }}_causageneral" class="form-select select-causageneral" required
                                             data-causa-original="{{ p.causa }}"
                                             data-gravedad-original="{{ p.gravedad }}"
                                             data-causageneral-original="{{ p.causageneral }}">
-                                        <option value="">-- Selecciona causa --</option>
-                                        {% for cg in causas_generales %}
-                                        <option value="{{ cg }}" {% if p.causageneral == cg %}selected{% endif %}>
-                                            {{ cg }}
+                                        <option value="">{{ t.cause_ph }}</option>
+                                        {% for cg in causas_bilingues %}
+                                        <option value="{{ cg.es }}" {% if p.causageneral == cg.es %}selected{% endif %}>
+                                            {% if lang == 'en' %}{{ cg.en|default:cg.es }}{% else %}{{ cg.es }}{% endif %}
                                         </option>
                                         {% endfor %}
                                     </select>
@@ -119,9 +119,9 @@
 
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-dark">
-                    <i class="bi bi-send"></i> Enviar incidencia
+                    <i class="bi bi-send"></i> {{ t.btn_submit }}
                 </button>
-                <a href="{% url 'clientes:portal' %}" class="btn btn-outline-secondary">Cancelar</a>
+                <a href="{% url 'clientes:portal' %}" class="btn btn-outline-secondary">{{ t.btn_cancel }}</a>
             </div>
         </form>
         {% endif %}
@@ -132,21 +132,36 @@
 
 {% block extra_js %}
 <script>
-var CAUSAS_GENERALES = {{ causas_generales_json|safe }};
+var LANG = "{{ lang }}";
+var I18N = {
+    label_code:    "{{ t.label_code }}",
+    label_product: "{{ t.label_product }}",
+    label_lot:     "{{ t.label_lot }}",
+    label_qty:     "{{ t.label_qty }}",
+    label_note:    "{{ t.label_note }}",
+    label_date:    "{{ t.label_date }}",
+    label_problem: "{{ t.label_problem }}",
+    ph_problem:    "{{ t.ph_problem }}",
+    label_cause:   "{{ t.label_cause }}",
+    cause_ph:      "{{ t.cause_ph }}",
+    product_n:     "{{ t.product_n }}",
+};
+var CAUSAS_BILINGUES = {{ causas_bilingues_json|safe }};
 var contadorProductos = document.querySelectorAll('.producto-fila').length;
 
 function buildCausaOptions(valorSeleccionado) {
-    var html = '<option value="">-- Selecciona causa --</option>';
-    CAUSAS_GENERALES.forEach(function(cg) {
-        var sel = (cg === valorSeleccionado) ? ' selected' : '';
-        html += '<option value="' + cg + '"' + sel + '>' + cg + '</option>';
+    var html = '<option value="">' + I18N.cause_ph + '</option>';
+    CAUSAS_BILINGUES.forEach(function(cg) {
+        var label = (LANG === 'en' && cg.en) ? cg.en : cg.es;
+        var sel = (cg.es === valorSeleccionado) ? ' selected' : '';
+        html += '<option value="' + cg.es + '"' + sel + '>' + label + '</option>';
     });
     return html;
 }
 
 function actualizarNumeros() {
     document.querySelectorAll('.producto-fila').forEach(function(fila, idx) {
-        fila.querySelector('strong').textContent = 'Producto ' + (idx + 1);
+        fila.querySelector('strong').textContent = I18N.product_n + ' ' + (idx + 1);
         fila.querySelectorAll('input').forEach(function(input) {
             input.name = input.name.replace(/^p\d+_/, 'p' + idx + '_');
         });
@@ -164,20 +179,20 @@ function añadirProducto() {
     var plantilla = `
     <div class="producto-fila border rounded p-3 mb-3 position-relative">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <strong class="text-muted">Producto</strong>
+            <strong class="text-muted">${I18N.product_n}</strong>
             <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarProducto(this)">
                 <i class="bi bi-trash"></i>
             </button>
         </div>
         <div class="row g-3">
-            <div class="col-md-3"><label class="form-label">Código producto</label><input type="text" name="pX_codigo" class="form-control"></div>
-            <div class="col-md-3"><label class="form-label">Producto</label><input type="text" name="pX_nombre" class="form-control"></div>
-            <div class="col-md-3"><label class="form-label">Lote</label><input type="text" name="pX_lote" class="form-control"></div>
-            <div class="col-md-3"><label class="form-label">Cantidad afectada</label><input type="text" name="pX_cantidad" class="form-control"></div>
-            <div class="col-md-3"><label class="form-label">Albarán</label><input type="text" name="pX_albaran" class="form-control"></div>
-            <div class="col-md-3"><label class="form-label">Fecha de recibimiento</label><input type="date" name="pX_fecha" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label">Problema</label><input type="text" name="pX_problema" class="form-control" placeholder="Describe brevemente el problema"></div>
-            <div class="col-md-6"><label class="form-label">Causa <span class="text-danger">*</span></label>
+            <div class="col-md-3"><label class="form-label">${I18N.label_code}</label><input type="text" name="pX_codigo" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">${I18N.label_product}</label><input type="text" name="pX_nombre" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">${I18N.label_lot}</label><input type="text" name="pX_lote" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">${I18N.label_qty}</label><input type="text" name="pX_cantidad" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">${I18N.label_note}</label><input type="text" name="pX_albaran" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">${I18N.label_date}</label><input type="date" name="pX_fecha" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">${I18N.label_problem}</label><input type="text" name="pX_problema" class="form-control" placeholder="${I18N.ph_problem}"></div>
+            <div class="col-md-6"><label class="form-label">${I18N.label_cause} <span class="text-danger">*</span></label>
                 <select name="pX_causageneral" class="form-select select-causageneral" required>${buildCausaOptions('')}</select>
             </div>
         </div>
@@ -198,14 +213,14 @@ document.addEventListener('change', function(e) {
     if (!e.target.classList.contains('select-causageneral')) return;
     var sel = e.target;
     var fila = sel.closest('.producto-fila');
-    var causaOriginal   = sel.getAttribute('data-causa-original') || '';
-    var gravedadOriginal = sel.getAttribute('data-gravedad-original') || '';
+    var causaOriginal        = sel.getAttribute('data-causa-original') || '';
+    var gravedadOriginal     = sel.getAttribute('data-gravedad-original') || '';
     var causageneralOriginal = sel.getAttribute('data-causageneral-original') || '';
     if (sel.value !== causageneralOriginal) {
-        fila.querySelector('input[name$="_causa"]').value = '';
+        fila.querySelector('input[name$="_causa"]').value   = '';
         fila.querySelector('input[name$="_gravedad"]').value = '';
     } else {
-        fila.querySelector('input[name$="_causa"]').value = causaOriginal;
+        fila.querySelector('input[name$="_causa"]').value   = causaOriginal;
         fila.querySelector('input[name$="_gravedad"]').value = gravedadOriginal;
     }
 });

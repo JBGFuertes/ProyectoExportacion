@@ -25,6 +25,15 @@ GRAVEDAD_MAP = {
 
 GRAVEDAD_REVERSE = {v: k for k, v in GRAVEDAD_MAP.items()}
 
+IDIOMA_MAP = {
+    347780000: 'Español',
+    347780001: 'Inglés',
+    347780002: 'Francés',
+    347780003: 'Portugués',
+    347780004: 'Alemán',
+    347780005: 'Italiano',
+}
+
 
 class DataverseClient:
 
@@ -75,7 +84,7 @@ class DataverseClient:
 
     def get_tickets(self):
         result = self._get('gfit_qlt_tickets', params={
-            '$select': 'gfit_qlt_ticketid,gfit_name,gfit_correocliente,gfit_estado,createdon',
+            '$select': 'gfit_qlt_ticketid,gfit_name,gfit_correocliente,gfit_estado,createdon,gfit_derivadacalidad',
             '$orderby': 'createdon desc',
         })
         tickets = []
@@ -87,7 +96,25 @@ class DataverseClient:
                 'correo':           t.get('gfit_correocliente', ''),
                 'estado':           ESTADO_MAP.get(t.get('gfit_estado'), 'Pendiente'),
                 'fecha':            (t.get('createdon') or '')[:10],
-                'derivada_calidad': False,
+                'derivada_calidad': bool(t.get('gfit_derivadacalidad', False)),
+            })
+        return tickets
+
+    def get_tickets_calidad(self):
+        result = self._get('gfit_qlt_tickets', params={
+            '$select': 'gfit_qlt_ticketid,gfit_name,gfit_correocliente,gfit_estado,createdon',
+            '$filter': 'gfit_derivadacalidad eq true',
+            '$orderby': 'createdon desc',
+        })
+        tickets = []
+        for t in result.get('value', []):
+            tickets.append({
+                'id':     t['gfit_qlt_ticketid'],
+                'titulo': t.get('gfit_name', ''),
+                'cliente': t.get('gfit_correocliente', ''),
+                'correo': t.get('gfit_correocliente', ''),
+                'estado': ESTADO_MAP.get(t.get('gfit_estado'), 'Pendiente'),
+                'fecha':  (t.get('createdon') or '')[:10],
             })
         return tickets
 
@@ -108,7 +135,7 @@ class DataverseClient:
             'cliente':         t.get('gfit_correocliente', ''),
             'correo':          t.get('gfit_correocliente', ''),
             'empresa':         t.get('gfit_nombreempresa', '') or t.get('gfit_empresa', ''),
-            'idioma':          t.get('gfit_idioma', ''),
+            'idioma':          IDIOMA_MAP.get(t.get('gfit_idioma'), ''),
             'estado':          ESTADO_MAP.get(t.get('gfit_estado'), 'Pendiente'),
             'fecha':           (t.get('createdon') or '')[:10],
             'conversation_id': t.get('gfit_conversationid', ''),
@@ -129,40 +156,64 @@ class DataverseClient:
             cause_catalog_id = c.get('_gfit_qlt_cause_catalogid_value') or ''
             materiales = self._get('gfit_qlt_ticket_materials', params={
                 '$select': 'gfit_qlt_ticket_materialid,gfit_nombreproducto,gfit_codigoproducto,'
-                           'gfit_cantidad,gfit_lote,gfit_albaran,gfit_problema,'
-                           'gfit_gravedad,gfit_fecharecibimiento',
+                           'gfit_cantidad,gfit_cantidadtotal,gfit_lote,gfit_albaran,gfit_problema,'
+                           'gfit_gravedad,gfit_fecharecibimiento,gfit_derivadacalidad,gfit_respondido',
                 '$filter': f"_gfit_qlt_ticket_causeid_value eq {cause_id}",
             }).get('value', [])
 
             for m in materiales:
                 todos_materiales.append({
-                    'id':           m['gfit_qlt_ticket_materialid'],
-                    'nombre':       m.get('gfit_nombreproducto', ''),
-                    'codigo':       m.get('gfit_codigoproducto', ''),
-                    'cantidad':     m.get('gfit_cantidad', ''),
-                    'lote':         m.get('gfit_lote', ''),
-                    'albaran':      m.get('gfit_albaran', ''),
-                    'problema':     m.get('gfit_problema', ''),
-                    'fecha':        (m.get('gfit_fecharecibimiento') or '')[:10],
-                    'gravedad':          GRAVEDAD_MAP.get(m.get('gfit_gravedad'), 'Leve'),
-                    'causa_nombre':      cause_name,
-                    'causa_id':          cause_id,
-                    'causa_catalog_id':  cause_catalog_id,
+                    'id':              m['gfit_qlt_ticket_materialid'],
+                    'nombre':          m.get('gfit_nombreproducto', ''),
+                    'codigo':          m.get('gfit_codigoproducto', ''),
+                    'cantidad':        m.get('gfit_cantidad', ''),
+                    'cantidad_total':  m.get('gfit_cantidadtotal', ''),
+                    'lote':            m.get('gfit_lote', ''),
+                    'albaran':         m.get('gfit_albaran', ''),
+                    'problema':        m.get('gfit_problema', ''),
+                    'fecha':           (m.get('gfit_fecharecibimiento') or '')[:10],
+                    'gravedad':        GRAVEDAD_MAP.get(m.get('gfit_gravedad'), 'Leve'),
+                    'causa_nombre':    cause_name,
+                    'causa_id':        cause_id,
+                    'causa_catalog_id': cause_catalog_id,
+                    'derivada_calidad': bool(m.get('gfit_derivadacalidad', False)),
+                    'respondido':       bool(m.get('gfit_respondido', False)),
                 })
 
-        # 4. Agrupar por gravedad del material
+        # 4. Agrupar por causa específica; dentro de cada causa, subgrupos por gravedad
+        causas_vistas = {}
+        for m in todos_materiales:
+            cid = m['causa_id']
+            if cid not in causas_vistas:
+                causas_vistas[cid] = {
+                    'causa_id':         cid,
+                    'causa_nombre':     m['causa_nombre'],
+                    'causa_catalog_id': m['causa_catalog_id'],
+                    'subgrupos':        {},
+                }
+            grav = m['gravedad']
+            if grav not in causas_vistas[cid]['subgrupos']:
+                causas_vistas[cid]['subgrupos'][grav] = []
+            causas_vistas[cid]['subgrupos'][grav].append(m)
+
         grupos = []
-        for gravedad in ['Grave', 'Moderada', 'Leve']:
-            mats = [m for m in todos_materiales if m['gravedad'] == gravedad]
-            if not mats:
-                continue
-            causas_vistas = {}
-            for m in mats:
-                cid = m['causa_id']
-                if cid not in causas_vistas:
-                    causas_vistas[cid] = {'id': cid, 'nombre': m['causa_nombre'], 'productos': []}
-                causas_vistas[cid]['productos'].append(m)
-            grupos.append({'gravedad': gravedad, 'causas': list(causas_vistas.values())})
+        for causa in causas_vistas.values():
+            cid = causa['causa_id']
+            subgrupos = [
+                {
+                    'gravedad':  grav,
+                    'productos': causa['subgrupos'][grav],
+                    'sg_key':    f"{cid[:8]}-{grav.lower()}",
+                }
+                for grav in ['Grave', 'Moderada', 'Leve']
+                if grav in causa['subgrupos']
+            ]
+            grupos.append({
+                'causa_id':         cid,
+                'causa_nombre':     causa['causa_nombre'],
+                'causa_catalog_id': causa['causa_catalog_id'],
+                'subgrupos':        subgrupos,
+            })
 
         # Mapa nombre → id de TODAS las ticket_causes (incluso las sin materiales)
         all_ticket_causes = {c.get('gfit_name', ''): c['gfit_qlt_ticket_causeid'] for c in causas_raw}
@@ -175,7 +226,8 @@ class DataverseClient:
 
     def get_causes_catalog(self):
         result = self._get('gfit_qlt_cause_catalogs', params={
-            '$select': 'gfit_qlt_cause_catalogid,gfit_nombrecausa,gfit_gravedad,gfit_orden,gfit_causageneral',
+            '$select': 'gfit_qlt_cause_catalogid,gfit_nombrecausa,gfit_gravedad,gfit_orden,'
+                       'gfit_causageneral,gfit_causageneral_en',
             '$filter': 'gfit_activo eq true',
             '$orderby': 'gfit_orden asc',
         }, extra_headers={
@@ -184,12 +236,14 @@ class DataverseClient:
         causas = []
         for c in result.get('value', []):
             causas.append({
-                'id':            c['gfit_qlt_cause_catalogid'],
-                'nombre':        c.get('gfit_nombrecausa', ''),
-                'causageneral':  c.get('gfit_causageneral@OData.Community.Display.V1.FormattedValue', '')
-                                 or c.get('gfit_causageneral', ''),
-                'gravedad':      GRAVEDAD_MAP.get(c.get('gfit_gravedad'), 'Leve'),
-                'gravedad_code': c.get('gfit_gravedad', 347780000),
+                'id':              c['gfit_qlt_cause_catalogid'],
+                'nombre':          c.get('gfit_nombrecausa', ''),
+                'causageneral':    c.get('gfit_causageneral@OData.Community.Display.V1.FormattedValue', '')
+                                   or c.get('gfit_causageneral', ''),
+                'causageneral_en': c.get('gfit_causageneral_en@OData.Community.Display.V1.FormattedValue', '')
+                                   or c.get('gfit_causageneral_en', ''),
+                'gravedad':        GRAVEDAD_MAP.get(c.get('gfit_gravedad'), 'Leve'),
+                'gravedad_code':   c.get('gfit_gravedad', 347780000),
             })
         return causas
 
@@ -259,3 +313,54 @@ class DataverseClient:
         if problema is not None:
             data['gfit_problema'] = problema
         self._patch(f'gfit_qlt_ticket_materials({material_id})', data)
+
+    # -------------------------------------------------------------------------
+    # Derivar a Calidad (nivel material y ticket)
+    # -------------------------------------------------------------------------
+
+    def marcar_materiales_respondidos(self, material_ids: list):
+        for material_id in material_ids:
+            self._patch(f'gfit_qlt_ticket_materials({material_id})', {'gfit_respondido': True})
+
+    def derivar_material(self, material_id, derivar: bool):
+        self._patch(f'gfit_qlt_ticket_materials({material_id})', {'gfit_derivadacalidad': derivar})
+
+    def derivar_ticket(self, ticket_id, derivar: bool):
+        self._patch(f'gfit_qlt_tickets({ticket_id})', {'gfit_derivadacalidad': derivar})
+
+    def has_derived_materials(self, ticket_id):
+        """Devuelve True si el ticket tiene al menos un material derivado a calidad."""
+        causes = self._get('gfit_qlt_ticket_causes', params={
+            '$select': 'gfit_qlt_ticket_causeid',
+            '$filter': f"_gfit_qlt_ticketid_value eq {ticket_id}",
+        }).get('value', [])
+        if not causes:
+            return False
+        cause_ids = [c['gfit_qlt_ticket_causeid'] for c in causes]
+        cause_filter = ' or '.join(
+            f"_gfit_qlt_ticket_causeid_value eq {cid}" for cid in cause_ids
+        )
+        materials = self._get('gfit_qlt_ticket_materials', params={
+            '$select': 'gfit_qlt_ticket_materialid',
+            '$filter': f"({cause_filter}) and gfit_derivadacalidad eq true",
+            '$top': '1',
+        }).get('value', [])
+        return len(materials) > 0
+
+    def get_ticket_detail_calidad(self, ticket_id):
+        """Igual que get_ticket_detail pero solo devuelve materiales derivados a calidad."""
+        detail = self.get_ticket_detail(ticket_id)
+        filtered_grupos = []
+        for grupo in detail.get('grupos', []):
+            filtered_subgrupos = []
+            for subgrupo in grupo['subgrupos']:
+                prods = [p for p in subgrupo['productos'] if p.get('derivada_calidad')]
+                if prods:
+                    filtered_subgrupos.append({**subgrupo, 'productos': prods})
+            if filtered_subgrupos:
+                filtered_grupos.append({**grupo, 'subgrupos': filtered_subgrupos})
+        return {
+            'incidencia':       detail['incidencia'],
+            'grupos':           filtered_grupos,
+            'all_ticket_causes': detail.get('all_ticket_causes', {}),
+        }

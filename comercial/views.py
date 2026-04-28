@@ -79,8 +79,8 @@ def detalle_incidencia(request, incidencia_id):
     # Detectar productos que el cliente modificó (sufijo ' [REVISAR]' en gfit_problema)
     SUFIJO_REVISAR = ' [REVISAR]'
     for grupo in detalle.get('grupos', []):
-        for causa in grupo.get('causas', []):
-            for m in causa.get('productos', []):
+        for subgrupo in grupo.get('subgrupos', []):
+            for m in subgrupo.get('productos', []):
                 if m.get('problema', '').endswith(SUFIJO_REVISAR):
                     m['revisable'] = True
                     m['problema']  = m['problema'][:-len(SUFIJO_REVISAR)]
@@ -101,8 +101,52 @@ def detalle_incidencia(request, incidencia_id):
 @login_required
 @require_POST
 def derivar_calidad(request, incidencia_id):
-    # TODO: implementar campo en Dataverse para marcar derivada a calidad
+    # Mantenido por compatibilidad; la derivación real se hace por material
     return JsonResponse({'ok': True})
+
+
+@login_required
+@require_POST
+def derivar_material_calidad(request, material_id):
+    """Marca o desmarca un material individual para derivar a calidad."""
+    try:
+        body = json.loads(request.body)
+        derivar = bool(body.get('derivar', False))
+        ticket_id = body.get('ticket_id', '').strip()
+
+        if not ticket_id:
+            return JsonResponse({'error': 'ticket_id requerido.'}, status=400)
+
+        client = DataverseClient()
+        client.derivar_material(material_id, derivar)
+
+        if derivar:
+            client.derivar_ticket(ticket_id, True)
+        else:
+            if not client.has_derived_materials(ticket_id):
+                client.derivar_ticket(ticket_id, False)
+
+        return JsonResponse({'ok': True})
+    except Exception as e:
+        return JsonResponse({'error': f'Error al actualizar: {e}'}, status=500)
+
+
+@login_required
+@require_POST
+def marcar_finalizada(request, incidencia_id):
+    """
+    Marca la incidencia como Finalizada en Dataverse.
+    TODO (futuras fases):
+      - Incrementar contador de incidencias finalizadas del cliente
+      - Marcar en tabla de auditoría que la respuesta fue válida
+      - Notificar al cliente por email
+      - Otros efectos según reglas de negocio
+    """
+    try:
+        DataverseClient().update_ticket(incidencia_id, {'gfit_estado': 347780002})
+        return JsonResponse({'ok': True})
+    except Exception as e:
+        return JsonResponse({'error': f'Error al finalizar la incidencia: {e}'}, status=500)
 
 
 @login_required
@@ -192,11 +236,19 @@ def enviar_respuesta(request, incidencia_id):
     try:
         r = requests.post(url, json=payload, timeout=60, verify=False)
         r.raise_for_status()
-        return JsonResponse({'ok': True})
     except requests.Timeout:
         return JsonResponse({'error': 'Tiempo de espera agotado. Inténtalo de nuevo.'}, status=504)
     except Exception as e:
         return JsonResponse({'error': f'Error al enviar: {e}'}, status=500)
+
+    material_ids = request.POST.getlist('material_ids[]')
+    if material_ids:
+        try:
+            DataverseClient().marcar_materiales_respondidos(material_ids)
+        except Exception as e:
+            logger.warning('No se pudieron marcar materiales como respondidos: %s', e)
+
+    return JsonResponse({'ok': True})
 
 
 @login_required
@@ -217,6 +269,7 @@ def ajustar_tono(request):
             'texto':    texto,
             'tono':     tono,
             'cliente':  body.get('cliente', ''),
+            'idioma':   body.get('idioma', ''),
             'gravedad': body.get('gravedad', ''),
             'causas':   body.get('causas', []),
         }

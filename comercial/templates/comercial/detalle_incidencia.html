@@ -4,13 +4,49 @@
 
 {% block extra_css %}
 <style>
+/* Botón derivar calidad por producto */
+.btn-derivar-calidad {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+    transition: all .2s;
+    line-height: 1.4;
+}
+.btn-derivar-calidad[data-derivada="false"] {
+    background: transparent;
+    border: 1.5px solid #adb5bd;
+    color: #6c757d;
+}
+.btn-derivar-calidad[data-derivada="false"]:hover {
+    border-color: #e67e22;
+    color: #e67e22;
+}
+.btn-derivar-calidad[data-derivada="true"] {
+    background: #e67e22;
+    border: 1.5px solid #d35400;
+    color: #fff;
+}
+/* Fila con producto derivado: borde izquierdo naranja */
+tr.derivada-calidad > td:first-child {
+    border-left: 3px solid #e67e22;
+    padding-left: calc(0.75rem - 3px);
+}
+/* Fila con producto ya respondido: fondo verde suave + borde izquierdo verde */
+tr.respondida > td {
+    background-color: rgba(25, 135, 84, 0.07) !important;
+}
+tr.respondida > td:first-child {
+    border-left: 3px solid #198754;
+    padding-left: calc(0.75rem - 3px);
+}
 @media (max-width: 576px) {
     .table.table-sm td, .table.table-sm th {
         padding: 0.25rem 0.35rem;
         vertical-align: middle;
         line-height: 1.2;
     }
-    .select-causa, .select-gravedad {
+    .select-gravedad {
         font-size: 0.72rem !important;
         padding: 2px 4px !important;
         height: auto !important;
@@ -71,153 +107,216 @@
             </div>
         </div>
         <div class="mt-4 d-flex gap-2">
-            <button class="btn-dorado" onclick="derivarCalidad()">
-                <i class="bi bi-exclamation-triangle"></i> Derivar a Calidad
-            </button>
-            <button class="btn-corporativo" onclick="marcarFinalizada()">
+            <button id="btn-finalizar" class="btn btn-success" onclick="marcarFinalizada()">
                 <i class="bi bi-check-circle"></i> Marcar como Finalizada
             </button>
         </div>
     </div>
 </div>
 
-<!-- Grupos por gravedad -->
+<!-- Grupos por causa específica -->
 {% if grupos %}
     {% for grupo in grupos %}
-    <div class="card shadow-sm mb-4 grupo-{{ grupo.gravedad|lower }}">
-        <div class="card-header d-flex align-items-center gap-2">
-            <i class="bi bi-exclamation-circle-fill"></i>
-            <strong>Gravedad {{ grupo.gravedad }}</strong>
-            <span class="badge bg-white text-dark ms-1">{{ grupo.causas|length }} causa{{ grupo.causas|length|pluralize:"s" }}</span>
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-secondary text-white d-flex align-items-center gap-2">
+            <i class="bi bi-tag-fill"></i>
+            <strong>{{ grupo.causa_nombre }}</strong>
+            <span class="badge bg-white text-dark ms-1">
+                {{ grupo.subgrupos|length }} gravedad{{ grupo.subgrupos|length|pluralize:"es" }}
+            </span>
         </div>
         <div class="card-body">
 
-            <!-- Causas y sus productos en una única tabla por grupo -->
-            <div class="table-responsive">
-                <table class="table table-sm table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Producto</th>
-                            <th>Código</th>
-                            <th>Cantidad</th>
-                            <th>Lote</th>
-                            <th>Albarán</th>
-                            <th>Problema</th>
-                            <th>Causa</th>
-                            <th>Gravedad</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for causa in grupo.causas %}
-                        {% for p in causa.productos %}
-                        <tr data-problema="{{ p.problema }}" data-revisable="{% if p.revisable %}1{% else %}0{% endif %}">
-                            <td>{{ p.nombre }}</td>
-                            <td><code>{{ p.codigo }}</code></td>
-                            <td>{{ p.cantidad }}</td>
-                            <td>{{ p.lote }}</td>
-                            <td>{{ p.albaran }}</td>
-                            <td class="td-problema">
-                                <span class="problema-texto" onclick="verProblema(this)">{{ p.problema }}</span>
-                            </td>
-                            <td>
-                                {% if p.revisable %}
-                                <span class="badge bg-warning text-dark d-block mb-1" title="El cliente modificó la causa general — revisar">
-                                    <i class="bi bi-exclamation-triangle-fill"></i> Revisar causa
-                                </span>
-                                {% endif %}
-                                <select class="form-select form-select-sm select-causa"
-                                        style="min-width:140px"
-                                        data-material-id="{{ p.id }}"
-                                        data-causa-nombre="{{ p.causa_nombre }}"
-                                        data-causa-catalog-id="{{ p.causa_catalog_id }}"
-                                        data-causa-id-original="{{ p.causa_id }}">
-                                    <!-- opciones inyectadas por JS desde CAUSAS_CATALOGO -->
-                                </select>
-                            </td>
-                            <td>
-                                <select class="form-select form-select-sm select-gravedad"
-                                        style="width:auto"
-                                        data-material-id="{{ p.id }}"
-                                        data-codigo="{{ p.codigo }}">
-                                    <option value="Leve"     {% if p.gravedad == 'Leve' %}selected{% endif %}>Leve</option>
-                                    <option value="Moderada" {% if p.gravedad == 'Moderada' %}selected{% endif %}>Moderada</option>
-                                    <option value="Grave"    {% if p.gravedad == 'Grave' %}selected{% endif %}>Grave</option>
-                                </select>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+            {% for subgrupo in grupo.subgrupos %}
+            <div class="mb-4 subgrupo-{{ subgrupo.gravedad|lower }}">
+                <h6 class="d-flex align-items-center gap-2 mb-2">
+                    <i class="bi bi-exclamation-circle-fill"></i>
+                    Gravedad {{ subgrupo.gravedad }}
+                    <span class="badge bg-light text-dark">{{ subgrupo.productos|length }} producto{{ subgrupo.productos|length|pluralize:"s" }}</span>
+                </h6>
 
-            <!-- Botón guardar gravedades (aparece al cambiar cualquier producto del grupo) -->
-            <div class="mb-3 d-flex align-items-center gap-2">
-                <button class="btn-corporativo btn-sm btn-guardar-grupo d-none" style="font-size:.75rem;padding:6px 14px"
-                        data-gravedad="{{ grupo.gravedad }}"
-                        onclick="guardarGravedadesGrupo('{{ grupo.gravedad }}')">
-                    <i class="bi bi-save"></i> Guardar cambios
-                </button>
-                <span class="spinner-guardar-{{ grupo.gravedad|lower }} d-none text-muted">
-                    <span class="spinner-border spinner-border-sm"></span> Guardando...
-                </span>
-            </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th>Código</th>
+                                <th>Cant. incid. / total</th>
+                                <th>Lote</th>
+                                <th>Albarán</th>
+                                <th>Problema</th>
+                                <th>Causa</th>
+                                <th>Gravedad</th>
+                                <th>Calidad</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in subgrupo.productos %}
+                            <tr class="{% if p.derivada_calidad %}derivada-calidad{% endif %}{% if p.respondido %} respondida{% endif %}"
+                                data-problema="{{ p.problema }}"
+                                data-revisable="{% if p.revisable %}1{% else %}0{% endif %}"
+                                data-causa-id="{{ p.causa_id }}"
+                                data-causa-nombre="{{ p.causa_nombre }}"
+                                data-causa-catalog-id="{{ p.causa_catalog_id }}"
+                                data-nombre="{{ p.nombre }}"
+                                data-cantidad="{{ p.cantidad }}">
+                                <td>
+                                    {% if p.respondido %}
+                                    <span class="badge bg-success d-block mb-1" title="Ya se ha enviado respuesta para este producto">
+                                        <i class="bi bi-envelope-check-fill"></i> Respondido
+                                    </span>
+                                    {% endif %}
+                                    {% if p.revisable %}
+                                    <span class="badge bg-warning text-dark d-block mb-1" title="El cliente modificó la causa general — revisar">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> Revisar causa
+                                    </span>
+                                    {% endif %}
+                                    {{ p.nombre }}
+                                </td>
+                                <td><code>{{ p.codigo }}</code></td>
+                                <td>
+                                    <span>{{ p.cantidad }}</span>
+                                    {% if p.cantidad_total %}
+                                    <span class="text-muted"> / {{ p.cantidad_total }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ p.lote }}</td>
+                                <td>{{ p.albaran }}</td>
+                                <td class="td-problema">
+                                    <span class="problema-texto" onclick="verProblema(this)">{{ p.problema }}</span>
+                                </td>
+                                <td style="min-width:200px">
+                                    <div class="input-group input-group-sm mb-1">
+                                        <span class="input-group-text px-1 text-muted" style="font-size:.7rem;white-space:nowrap">General</span>
+                                        <select class="form-select form-select-sm select-causageneral"
+                                                data-causa-catalog-id-actual="{{ p.causa_catalog_id }}">
+                                            <!-- opciones inyectadas por JS -->
+                                        </select>
+                                    </div>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text px-1 text-muted" style="font-size:.7rem;white-space:nowrap">Específ.</span>
+                                        <select class="form-select form-select-sm select-causaespecifica"
+                                                data-material-id="{{ p.id }}"
+                                                data-codigo="{{ p.codigo }}"
+                                                data-causa-catalog-id="{{ p.causa_catalog_id }}"
+                                                data-causa-nombre="{{ p.causa_nombre }}"
+                                                data-causa-id-original="{{ p.causa_id }}"
+                                                data-sg-key="{{ subgrupo.sg_key }}">
+                                            <!-- opciones inyectadas por JS -->
+                                        </select>
+                                    </div>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm select-gravedad"
+                                            style="width:auto"
+                                            data-material-id="{{ p.id }}"
+                                            data-codigo="{{ p.codigo }}"
+                                            data-sg-key="{{ subgrupo.sg_key }}">
+                                        <option value="Leve"     {% if p.gravedad == 'Leve' %}selected{% endif %}>Leve</option>
+                                        <option value="Moderada" {% if p.gravedad == 'Moderada' %}selected{% endif %}>Moderada</option>
+                                        <option value="Grave"    {% if p.gravedad == 'Grave' %}selected{% endif %}>Grave</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <button class="btn-derivar-calidad"
+                                            data-derivada="{% if p.derivada_calidad %}true{% else %}false{% endif %}"
+                                            onclick="toggleDerivarCalidad(this, '{{ p.id }}')">
+                                        <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                        <i class="bi {% if p.derivada_calidad %}bi-shield-fill-check{% else %}bi-shield{% endif %}"></i>
+                                        <span>{% if p.derivada_calidad %}Derivado ✓{% else %}Calidad{% endif %}</span>
+                                    </button>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            style="padding:2px 7px;font-size:.75rem;white-space:nowrap"
+                                            title="Responder solo a este producto"
+                                            onclick="abrirResponderProducto(this, '{{ p.id }}', '{{ p.causa_nombre|escapejs }}', '{{ p.gravedad }}')">
+                                        <i class="bi bi-reply-fill"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
 
-            <hr>
+                <!-- Botón guardar gravedades -->
+                <div class="mt-2 mb-3 d-flex align-items-center gap-2">
+                    <button class="btn-corporativo btn-sm btn-guardar-sg d-none"
+                            style="font-size:.75rem;padding:6px 14px"
+                            id="btn-guardar-{{ subgrupo.sg_key }}"
+                            data-sg-key="{{ subgrupo.sg_key }}"
+                            onclick="guardarSubgrupo('{{ subgrupo.sg_key }}')">
+                        <i class="bi bi-save"></i> Guardar cambios
+                    </button>
+                    <span id="spinner-guardar-{{ subgrupo.sg_key }}" class="d-none text-muted">
+                        <span class="spinner-border spinner-border-sm"></span> Guardando...
+                    </span>
+                </div>
 
-            <!-- Editor de respuesta para este grupo -->
-            <div class="mt-2">
-                <label class="form-label fw-bold">
-                    <i class="bi bi-envelope-paper"></i> Respuesta para causas de gravedad {{ grupo.gravedad }}
-                </label>
-                <textarea id="texto-email-{{ grupo.gravedad|lower }}"
-                          class="form-control mb-2" rows="6"
-                >Estimado/a cliente de {{ incidencia.cliente }},
+                <hr>
 
-Hemos recibido su incidencia relativa a {% for causa in grupo.causas %}{{ causa.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %} y estamos trabajando en resolverla. Le mantendremos informado/a a la mayor brevedad posible.
+                <!-- Editor de respuesta -->
+                <div class="mt-2">
+                    <div id="aviso-revisable-{{ subgrupo.sg_key }}" class="alert alert-warning d-none mb-3" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        Hay productos con causa <strong>pendiente de revisión</strong>. Corrígelos y guarda los cambios antes de poder responder.
+                    </div>
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-envelope-paper"></i>
+                        Respuesta — {{ grupo.causa_nombre }} / {{ subgrupo.gravedad }}
+                    </label>
+                    <textarea id="texto-email-{{ subgrupo.sg_key }}"
+                              class="form-control mb-2" rows="6"
+                    >Estimado/a cliente de {{ incidencia.cliente }},
+
+Hemos recibido su incidencia relativa a {{ grupo.causa_nombre }} y estamos trabajando en resolverla. Le mantendremos informado/a a la mayor brevedad posible.
 
 Disculpe las molestias ocasionadas.</textarea>
 
-                <div class="d-flex gap-2 flex-wrap align-items-center">
-                    <button class="btn btn-sm btn-outline-success btn-amigable-{{ grupo.gravedad|lower }}"
-                            onclick="ajustarTono('amigable', '{{ grupo.gravedad }}')">
-                        <i class="bi bi-emoji-smile"></i> Tono más amigable
-                    </button>
-                    <button class="btn btn-sm btn-outline-secondary btn-serio-{{ grupo.gravedad|lower }}"
-                            onclick="ajustarTono('formal', '{{ grupo.gravedad }}')">
-                        <i class="bi bi-briefcase"></i> Tono más serio
-                    </button>
-                    <span id="spinner-tono-{{ grupo.gravedad|lower }}" class="d-none text-muted">
-                        <span class="spinner-border spinner-border-sm"></span> La IA está pensando...
-                    </span>
-                </div>
-                <div id="error-tono-{{ grupo.gravedad|lower }}" class="alert alert-danger d-none mt-2"></div>
+                    <div class="d-flex gap-2 flex-wrap align-items-center">
+                        <button class="btn btn-sm btn-outline-success btn-amigable-{{ subgrupo.sg_key }}"
+                                onclick="ajustarTono('amigable', '{{ subgrupo.sg_key }}', '{{ grupo.causa_nombre|escapejs }}', '{{ subgrupo.gravedad }}')">
+                            <i class="bi bi-emoji-smile"></i> Tono más amigable
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary btn-serio-{{ subgrupo.sg_key }}"
+                                onclick="ajustarTono('formal', '{{ subgrupo.sg_key }}', '{{ grupo.causa_nombre|escapejs }}', '{{ subgrupo.gravedad }}')">
+                            <i class="bi bi-briefcase"></i> Tono más serio
+                        </button>
+                        <span id="spinner-tono-{{ subgrupo.sg_key }}" class="d-none text-muted">
+                            <span class="spinner-border spinner-border-sm"></span> La IA está pensando...
+                        </span>
+                    </div>
+                    <div id="error-tono-{{ subgrupo.sg_key }}" class="alert alert-danger d-none mt-2"></div>
 
-                <!-- Adjuntos + Enviar -->
-                <div class="d-flex align-items-center gap-2 flex-wrap mt-2">
-                    <label for="adjuntos-{{ grupo.gravedad|lower }}"
-                           class="btn btn-sm btn-outline-secondary mb-0"
-                           title="Adjuntar archivos">
-                        <i class="bi bi-paperclip"></i>
-                    </label>
-                    <input type="file" id="adjuntos-{{ grupo.gravedad|lower }}" multiple class="d-none"
-                           onchange="agregarAdjuntos('{{ grupo.gravedad|lower }}')">
-                    <button id="btn-enviar-{{ grupo.gravedad|lower }}"
-                            class="btn-corporativo"
-                            style="font-size:.75rem;padding:6px 14px"
-                            onclick="enviarRespuesta('{{ grupo.gravedad }}')">
-                        <i class="bi bi-send"></i> Enviar al cliente
-                    </button>
-                    <span id="spinner-enviar-{{ grupo.gravedad|lower }}" class="d-none text-muted">
-                        <span class="spinner-border spinner-border-sm"></span> Enviando...
-                    </span>
-                </div>
-                <div id="lista-adjuntos-{{ grupo.gravedad|lower }}" class="mt-1 d-flex flex-wrap gap-1"></div>
-                <div id="error-enviar-{{ grupo.gravedad|lower }}" class="alert alert-danger d-none mt-2"></div>
-                <div id="success-enviar-{{ grupo.gravedad|lower }}" class="alert alert-success d-none mt-2">
-                    <i class="bi bi-check-circle-fill"></i> Email enviado correctamente al cliente.
+                    <!-- Adjuntos + Enviar -->
+                    <div class="d-flex align-items-center gap-2 flex-wrap mt-2">
+                        <label for="adjuntos-{{ subgrupo.sg_key }}"
+                               class="btn btn-sm btn-outline-secondary mb-0"
+                               title="Adjuntar archivos">
+                            <i class="bi bi-paperclip"></i>
+                        </label>
+                        <input type="file" id="adjuntos-{{ subgrupo.sg_key }}" multiple class="d-none"
+                               onchange="agregarAdjuntos('{{ subgrupo.sg_key }}')">
+                        <button id="btn-enviar-{{ subgrupo.sg_key }}"
+                                class="btn-corporativo"
+                                style="font-size:.75rem;padding:6px 14px"
+                                onclick="enviarRespuesta('{{ subgrupo.sg_key }}')">
+                            <i class="bi bi-send"></i> Enviar al cliente
+                        </button>
+                        <span id="spinner-enviar-{{ subgrupo.sg_key }}" class="d-none text-muted">
+                            <span class="spinner-border spinner-border-sm"></span> Enviando...
+                        </span>
+                    </div>
+                    <div id="lista-adjuntos-{{ subgrupo.sg_key }}" class="mt-1 d-flex flex-wrap gap-1"></div>
+                    <div id="error-enviar-{{ subgrupo.sg_key }}" class="alert alert-danger d-none mt-2"></div>
+                    <div id="success-enviar-{{ subgrupo.sg_key }}" class="alert alert-success d-none mt-2">
+                        <i class="bi bi-check-circle-fill"></i> Email enviado correctamente al cliente.
+                    </div>
                 </div>
             </div>
+            {% endfor %}
 
         </div>
     </div>
@@ -226,6 +325,86 @@ Disculpe las molestias ocasionadas.</textarea>
 {% else %}
 <div class="alert alert-info">Esta incidencia no tiene causas registradas.</div>
 {% endif %}
+
+<!-- Modal confirmación finalizar incidencia -->
+<div class="modal fade" id="modalFinalizar" tabindex="-1" aria-labelledby="modalFinalizarLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="modalFinalizarLabel">
+                    <i class="bi bi-check-circle-fill text-success me-2"></i>Finalizar incidencia
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <p class="mb-1">¿Seguro que quieres marcar esta incidencia como <strong>Finalizada</strong>?</p>
+                <p class="text-muted small mb-0">Esta acción cambiará su estado y no podrá deshacerse fácilmente.</p>
+            </div>
+            <div class="modal-footer border-0 pt-0 gap-2">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-success" id="btn-confirmar-finalizar">
+                    <i class="bi bi-check-circle"></i> Sí, finalizar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal respuesta individual por producto -->
+<div class="modal fade" id="modalResponderProducto" tabindex="-1" aria-labelledby="modalRespProdLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalRespProdLabel">
+                    <i class="bi bi-reply-fill me-2 text-primary"></i>
+                    Responder a: <span id="modoRespProd-nombre" class="text-primary"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <textarea id="modoRespProd-textarea" class="form-control mb-2" rows="7"></textarea>
+
+                <div class="d-flex gap-2 flex-wrap align-items-center mb-2">
+                    <button class="btn btn-sm btn-outline-success" id="modoRespProd-btn-amigable"
+                            onclick="ajustarTonoProducto('amigable')">
+                        <i class="bi bi-emoji-smile"></i> Tono más amigable
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" id="modoRespProd-btn-serio"
+                            onclick="ajustarTonoProducto('formal')">
+                        <i class="bi bi-briefcase"></i> Tono más serio
+                    </button>
+                    <span id="modoRespProd-spinner-tono" class="d-none text-muted">
+                        <span class="spinner-border spinner-border-sm"></span> La IA está pensando...
+                    </span>
+                </div>
+                <div id="modoRespProd-error-tono" class="alert alert-danger d-none mb-2"></div>
+
+                <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
+                    <label for="modoRespProd-adjuntos" class="btn btn-sm btn-outline-secondary mb-0" title="Adjuntar archivos">
+                        <i class="bi bi-paperclip"></i>
+                    </label>
+                    <input type="file" id="modoRespProd-adjuntos" multiple class="d-none"
+                           onchange="agregarAdjuntosProducto()">
+                    <button class="btn-corporativo" style="font-size:.75rem;padding:6px 14px"
+                            id="modoRespProd-btn-enviar"
+                            onclick="enviarRespuestaProducto()">
+                        <i class="bi bi-send"></i> Enviar al cliente
+                    </button>
+                    <span id="modoRespProd-spinner-enviar" class="d-none text-muted">
+                        <span class="spinner-border spinner-border-sm"></span> Enviando...
+                    </span>
+                </div>
+                <div id="modoRespProd-lista-adjuntos" class="mt-1 d-flex flex-wrap gap-1"></div>
+                <div id="modoRespProd-error-enviar" class="alert alert-danger d-none mt-2"></div>
+                <div id="modoRespProd-success-enviar" class="alert alert-success d-none mt-2">
+                    <i class="bi bi-check-circle-fill"></i> Email enviado correctamente al cliente.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Modal problema completo (solo móvil) -->
 <div class="modal fade" id="modalProblema" tabindex="-1" aria-hidden="true">
@@ -240,12 +419,12 @@ Disculpe las molestias ocasionadas.</textarea>
     </div>
 </div>
 
-<!-- Toast confirmación gravedades -->
+<!-- Toast confirmación guardado -->
 <div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100">
-    <div id="toast-gravedades" class="toast align-items-center text-bg-success border-0" role="alert" aria-atomic="true">
+    <div id="toast-guardado" class="toast align-items-center text-bg-success border-0" role="alert" aria-atomic="true">
         <div class="d-flex">
             <div class="toast-body">
-                <i class="bi bi-check-circle-fill"></i> Gravedades actualizadas correctamente.
+                <i class="bi bi-check-circle-fill"></i> Cambios guardados correctamente.
             </div>
             <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
         </div>
@@ -255,51 +434,154 @@ Disculpe las molestias ocasionadas.</textarea>
 
 {% block extra_js %}
 <script>
+var TICKET_ID = '{{ incidencia.id }}';
+
 function verProblema(el) {
     if (window.innerWidth > 576) return;
     document.getElementById('modalProblemaTexto').textContent = el.textContent;
     new bootstrap.Modal(document.getElementById('modalProblema')).show();
 }
 
-// Opciones del catálogo (activas, ordenadas por gfit_orden)
-var CAUSAS_CATALOGO = {{ causas_catalogo_json|safe }};
-// Mapeo nombre_causa → ticket_cause_id (para el vínculo en Dataverse al guardar)
-var CAUSA_ID_MAP = {{ causa_id_map_json|safe }};
+function toggleDerivarCalidad(btn, materialId) {
+    var derivada = btn.getAttribute('data-derivada') === 'true';
+    var nueva = !derivada;
+    var spinner = btn.querySelector('.spinner-border');
+    var icon    = btn.querySelector('i');
+    var label   = btn.querySelector('span:not(.spinner-border)');
 
-// Inicializar selects de causa: preselección por ID de catálogo, fallback por nombre
-document.querySelectorAll('.select-causa').forEach(function(sel) {
-    var nombreActual   = sel.getAttribute('data-causa-nombre');
-    var catalogIdActual = sel.getAttribute('data-causa-catalog-id') || '';
-    var html = '';
-    CAUSAS_CATALOGO.forEach(function(c) {
-        var matched = catalogIdActual ? (c.id === catalogIdActual) : (c.nombre === nombreActual);
-        var selected = matched ? ' selected' : '';
-        html += '<option value="' + c.nombre + '" data-gravedad="' + c.gravedad + '" data-id="' + c.id + '"' + selected + '>' + c.nombre + '</option>';
+    btn.disabled = true;
+    spinner.classList.remove('d-none');
+    icon.classList.add('d-none');
+
+    fetch("{% url 'comercial:derivar_material_calidad' '00000000-0000-0000-0000-000000000000' %}".replace('00000000-0000-0000-0000-000000000000', materialId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify({ derivar: nueva, ticket_id: TICKET_ID }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            btn.setAttribute('data-derivada', nueva ? 'true' : 'false');
+            icon.className = 'bi ' + (nueva ? 'bi-shield-fill-check' : 'bi-shield');
+            label.textContent = nueva ? 'Derivado ✓' : 'Calidad';
+            var fila = btn.closest('tr');
+            if (nueva) {
+                fila.classList.add('derivada-calidad');
+            } else {
+                fila.classList.remove('derivada-calidad');
+            }
+        } else {
+            alert(data.error || 'Error al cambiar estado de calidad.');
+        }
+    })
+    .catch(() => alert('Error de conexión.'))
+    .finally(() => {
+        btn.disabled = false;
+        spinner.classList.add('d-none');
+        icon.classList.remove('d-none');
     });
-    sel.innerHTML = html;
+}
+
+var CAUSAS_CATALOGO = {{ causas_catalogo_json|safe }};
+var CAUSA_ID_MAP    = {{ causa_id_map_json|safe }};
+
+// Causas generales únicas extraídas del catálogo
+var CAUSAS_GENERALES_UNICAS = (function() {
+    var seen = {}, list = [];
+    CAUSAS_CATALOGO.forEach(function(c) {
+        if (c.causageneral && !seen[c.causageneral]) {
+            seen[c.causageneral] = true;
+            list.push(c.causageneral);
+        }
+    });
+    return list;
+})();
+
+function buildCausaGeneralOptions(seleccionada) {
+    var html = '<option value="">-- General --</option>';
+    CAUSAS_GENERALES_UNICAS.forEach(function(cg) {
+        html += '<option value="' + cg + '"' + (cg === seleccionada ? ' selected' : '') + '>' + cg + '</option>';
+    });
+    return html;
+}
+
+function buildCausaEspecificaOptions(causaGeneral, catalogIdActual, nombreActual) {
+    var html = '<option value="">-- Específica --</option>';
+    CAUSAS_CATALOGO.forEach(function(c) {
+        if (c.causageneral !== causaGeneral) return;
+        var matched = catalogIdActual ? (c.id === catalogIdActual) : (c.nombre === nombreActual);
+        html += '<option value="' + c.nombre + '" data-id="' + c.id + '" data-gravedad="' + c.gravedad + '"'
+              + (matched ? ' selected' : '') + '>' + c.nombre + '</option>';
+    });
+    return html;
+}
+
+// Inicializar selects de causa al cargar
+document.querySelectorAll('.select-causaespecifica').forEach(function(selEsp) {
+    var catalogId = selEsp.getAttribute('data-causa-catalog-id') || '';
+    var nombre    = selEsp.getAttribute('data-causa-nombre') || '';
+    var causaGeneral = '';
+    CAUSAS_CATALOGO.forEach(function(c) {
+        if (catalogId ? c.id === catalogId : c.nombre === nombre) causaGeneral = c.causageneral;
+    });
+    var fila   = selEsp.closest('tr');
+    var selGen = fila.querySelector('.select-causageneral');
+    selGen.innerHTML = buildCausaGeneralOptions(causaGeneral);
+    selEsp.innerHTML = buildCausaEspecificaOptions(causaGeneral, catalogId, nombre);
 });
 
 // Colorear selects de gravedad al cargar
 document.querySelectorAll('.select-gravedad').forEach(function(el) { colorearGravedad(el); });
 
+// Bloquear subgrupos con productos pendientes de revisión
+function bloquearSubgrupoSiRevisable(sgKey) {
+    var aviso    = document.getElementById('aviso-revisable-' + sgKey);
+    var btnAm    = document.querySelector('.btn-amigable-' + sgKey);
+    var btnSer   = document.querySelector('.btn-serio-' + sgKey);
+    var btnEnv   = document.getElementById('btn-enviar-' + sgKey);
+    var lblAdj   = document.querySelector('label[for="adjuntos-' + sgKey + '"]');
+    var inputAdj = document.getElementById('adjuntos-' + sgKey);
+
+    if (aviso)    aviso.classList.remove('d-none');
+    if (btnAm)    { btnAm.disabled  = true; btnAm.title  = 'Resuelve los productos pendientes de revisión primero.'; }
+    if (btnSer)   { btnSer.disabled = true; btnSer.title = 'Resuelve los productos pendientes de revisión primero.'; }
+    if (btnEnv)   { btnEnv.disabled = true; btnEnv.title = 'Resuelve los productos pendientes de revisión primero.'; }
+    if (lblAdj)   { lblAdj.classList.add('disabled'); lblAdj.style.pointerEvents = 'none'; lblAdj.style.opacity = '.45'; }
+    if (inputAdj) inputAdj.disabled = true;
+}
+
+document.querySelectorAll('tbody').forEach(function(tbody) {
+    if (!tbody.querySelector('tr[data-revisable="1"]')) return;
+    var sgKey = tbody.querySelector('.select-causaespecifica')?.getAttribute('data-sg-key');
+    if (sgKey) bloquearSubgrupoSiRevisable(sgKey);
+});
+
 document.addEventListener('change', function(e) {
-    // Al cambiar gravedad: colorear y mostrar botón guardar
     if (e.target.classList.contains('select-gravedad')) {
         colorearGravedad(e.target);
-        e.target.closest('.card').querySelector('.btn-guardar-grupo').classList.remove('d-none');
+        mostrarBotonGuardar(e.target.getAttribute('data-sg-key'));
     }
-
-    // Al cambiar causa: resetear gravedad a la del catálogo para esa causa y mostrar botón guardar
-    if (e.target.classList.contains('select-causa')) {
+    if (e.target.classList.contains('select-causageneral')) {
+        var fila   = e.target.closest('tr');
+        var selEsp = fila.querySelector('.select-causaespecifica');
+        selEsp.innerHTML = buildCausaEspecificaOptions(e.target.value, '', '');
+        mostrarBotonGuardar(fila.querySelector('.select-causaespecifica').getAttribute('data-sg-key'));
+    }
+    if (e.target.classList.contains('select-causaespecifica')) {
         var opt = e.target.options[e.target.selectedIndex];
-        var nuevaGravedad = opt ? (opt.getAttribute('data-gravedad') || 'Leve') : 'Leve';
-        var fila = e.target.closest('tr');
-        var selGravedad = fila.querySelector('.select-gravedad');
-        selGravedad.value = nuevaGravedad;
-        colorearGravedad(selGravedad);
-        e.target.closest('.card').querySelector('.btn-guardar-grupo').classList.remove('d-none');
+        if (opt && opt.getAttribute('data-gravedad')) {
+            var selGrav = e.target.closest('tr').querySelector('.select-gravedad');
+            selGrav.value = opt.getAttribute('data-gravedad');
+            colorearGravedad(selGrav);
+        }
+        mostrarBotonGuardar(e.target.getAttribute('data-sg-key'));
     }
 });
+
+function mostrarBotonGuardar(sgKey) {
+    var btn = document.getElementById('btn-guardar-' + sgKey);
+    if (btn) btn.classList.remove('d-none');
+}
 
 function colorearGravedad(el) {
     var mapa = { 'Grave': 'gravedad-grave', 'Moderada': 'gravedad-moderada', 'Leve': 'gravedad-leve' };
@@ -307,33 +589,38 @@ function colorearGravedad(el) {
     el.classList.add(mapa[el.value] || '');
 }
 
-function guardarGravedadesGrupo(gravedad) {
-    var card = document.querySelector('.btn-guardar-grupo[data-gravedad="' + gravedad + '"]').closest('.card');
+function guardarSubgrupo(sgKey) {
+    var tbody = document.querySelector('[data-sg-key="' + sgKey + '"].select-causaespecifica')
+                        ?.closest('tbody');
+    if (!tbody) return;
+
     var productos = [];
-    card.querySelectorAll('tbody tr').forEach(function(fila) {
-        var selGrav  = fila.querySelector('.select-gravedad');
-        var selCausa = fila.querySelector('.select-causa');
+    tbody.querySelectorAll('tr').forEach(function(fila) {
+        var selGrav = fila.querySelector('.select-gravedad');
+        var selEsp  = fila.querySelector('.select-causaespecifica');
         if (!selGrav) return;
-        var causaNombre    = selCausa ? selCausa.value : '';
-        var causaOpt       = selCausa ? selCausa.options[selCausa.selectedIndex] : null;
-        var causaCatalogId = causaOpt ? (causaOpt.getAttribute('data-id') || '') : '';
-        var revisable = fila.getAttribute('data-revisable') === '1';
+        var causaNombre    = selEsp ? selEsp.value : (fila.getAttribute('data-causa-nombre') || '');
+        var causaOpt       = selEsp ? selEsp.options[selEsp.selectedIndex] : null;
+        var causaCatalogId = causaOpt ? (causaOpt.getAttribute('data-id') || '') : (fila.getAttribute('data-causa-catalog-id') || '');
+        var causaIdOriginal = selEsp ? (selEsp.getAttribute('data-causa-id-original') || '') : '';
+        var causaId         = CAUSA_ID_MAP[causaNombre] || '';
+        var revisable       = fila.getAttribute('data-revisable') === '1';
         productos.push({
             id:                selGrav.getAttribute('data-material-id') || '',
             codigo:            selGrav.getAttribute('data-codigo') || '',
             gravedad:          selGrav.value,
-            causa_id:          CAUSA_ID_MAP[causaNombre] || '',
+            causa_id:          causaId,
             causa_nombre:      causaNombre,
             causa_catalog_id:  causaCatalogId,
-            causa_id_original: selCausa ? (selCausa.getAttribute('data-causa-id-original') || '') : '',
+            causa_id_original: causaIdOriginal,
             problema:          revisable ? (fila.getAttribute('data-problema') || '') : null,
         });
     });
 
-    var btn     = card.querySelector('.btn-guardar-grupo');
-    var spinner = card.querySelector('.spinner-guardar-' + gravedad.toLowerCase());
+    var btn     = document.getElementById('btn-guardar-' + sgKey);
+    var spinner = document.getElementById('spinner-guardar-' + sgKey);
     btn.disabled = true;
-    spinner.classList.remove('d-none');
+    if (spinner) spinner.classList.remove('d-none');
 
     fetch("{% url 'comercial:actualizar_gravedades' incidencia.id %}", {
         method: 'POST',
@@ -347,43 +634,38 @@ function guardarGravedadesGrupo(gravedad) {
         } else {
             alert(data.error || 'Error al guardar.');
             btn.disabled = false;
-            spinner.classList.add('d-none');
+            if (spinner) spinner.classList.add('d-none');
         }
     })
     .catch(() => {
         alert('Error de conexión.');
         btn.disabled = false;
-        spinner.classList.add('d-none');
+        if (spinner) spinner.classList.add('d-none');
     });
 }
 
-function ajustarTono(tono, gravedad) {
-    var gravedadId = gravedad.toLowerCase();
-    var textarea   = document.getElementById('texto-email-' + gravedadId);
-    var texto      = textarea.value.trim();
+function ajustarTono(tono, sgKey, causaNombre, gravedad) {
+    var textarea = document.getElementById('texto-email-' + sgKey);
+    var texto    = textarea.value.trim();
     if (!texto) return;
 
-    // Recoger causas y productos del grupo correspondiente agrupando por causa seleccionada
-    var card   = document.querySelector('.btn-guardar-grupo[data-gravedad="' + gravedad + '"]').closest('.card');
-    var causasMap = {};
-    card.querySelectorAll('tbody tr').forEach(function(row) {
-        var selCausa   = row.querySelector('.select-causa');
-        var causaNombre = selCausa ? selCausa.value : '';
-        if (!causasMap[causaNombre]) causasMap[causaNombre] = [];
-        causasMap[causaNombre].push({
-            nombre:   row.cells[0]?.textContent.trim() || '',
-            cantidad: row.cells[2]?.textContent.trim() || '',
-            problema: row.cells[5]?.textContent.trim() || '',
+    var tbody = document.querySelector('[data-sg-key="' + sgKey + '"].select-causaespecifica')
+                        ?.closest('tbody');
+    var productos = [];
+    if (tbody) {
+        tbody.querySelectorAll('tr').forEach(function(row) {
+            productos.push({
+                nombre:   row.getAttribute('data-nombre') || '',
+                cantidad: row.getAttribute('data-cantidad') || '',
+                problema: row.getAttribute('data-problema') || '',
+            });
         });
-    });
-    var causas = Object.entries(causasMap).map(function(entry) {
-        return { nombre: entry[0], productos: entry[1] };
-    });
+    }
 
-    var btnAm  = document.querySelector('.btn-amigable-' + gravedadId);
-    var btnSer = document.querySelector('.btn-serio-' + gravedadId);
-    var spinner = document.getElementById('spinner-tono-' + gravedadId);
-    var errorDiv = document.getElementById('error-tono-' + gravedadId);
+    var btnAm    = document.querySelector('.btn-amigable-' + sgKey);
+    var btnSer   = document.querySelector('.btn-serio-' + sgKey);
+    var spinner  = document.getElementById('spinner-tono-' + sgKey);
+    var errorDiv = document.getElementById('error-tono-' + sgKey);
 
     btnAm.disabled = btnSer.disabled = true;
     spinner.classList.remove('d-none');
@@ -396,8 +678,9 @@ function ajustarTono(tono, gravedad) {
             texto:    texto,
             tono:     tono,
             cliente:  '{{ incidencia.cliente|escapejs }}',
+            idioma:   '{{ incidencia.idioma|escapejs }}',
             gravedad: gravedad,
-            causas:   causas,
+            causas:   [{ nombre: causaNombre, productos: productos }],
         }),
     })
     .then(r => r.json())
@@ -419,49 +702,68 @@ function ajustarTono(tono, gravedad) {
     });
 }
 
-function derivarCalidad() {
-    if (!confirm('¿Seguro que quieres derivar esta incidencia al departamento de Calidad?')) return;
-    fetch("{% url 'comercial:derivar_calidad' incidencia.id %}", {
+var _modalFinalizar = null;
+
+function marcarFinalizada() {
+    if (!_modalFinalizar) {
+        _modalFinalizar = new bootstrap.Modal(document.getElementById('modalFinalizar'));
+    }
+    _modalFinalizar.show();
+}
+
+document.getElementById('btn-confirmar-finalizar').addEventListener('click', function() {
+    var btnModal  = this;
+    var btnHeader = document.getElementById('btn-finalizar');
+
+    btnModal.disabled = true;
+    btnModal.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Finalizando...';
+
+    fetch("{% url 'comercial:marcar_finalizada' incidencia.id %}", {
         method: 'POST',
         headers: { 'X-CSRFToken': '{{ csrf_token }}' },
     })
     .then(r => r.json())
     .then(data => {
+        _modalFinalizar.hide();
         if (data.ok) {
-            var btn = document.querySelector('[onclick="derivarCalidad()"]');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="bi bi-check-circle"></i> Derivada a Calidad';
-            btn.classList.replace('btn-danger', 'btn-secondary');
+            btnHeader.disabled = true;
+            btnHeader.innerHTML = '<i class="bi bi-check-circle-fill"></i> Finalizada';
+            btnHeader.classList.replace('btn-success', 'btn-secondary');
+            var badge = document.querySelector('.card-header .badge');
+            if (badge) {
+                badge.className = 'badge bg-success fs-6';
+                badge.textContent = 'Finalizada';
+            }
         } else {
-            alert(data.error || 'Error al derivar la incidencia.');
+            alert(data.error || 'Error al finalizar la incidencia.');
         }
     })
-    .catch(() => alert('Error de conexión.'));
-}
+    .catch(() => {
+        _modalFinalizar.hide();
+        alert('Error de conexión.');
+    })
+    .finally(() => {
+        btnModal.disabled = false;
+        btnModal.innerHTML = '<i class="bi bi-check-circle"></i> Sí, finalizar';
+    });
+});
 
-function marcarFinalizada() {
-    if (confirm('¿Marcar esta incidencia como Finalizada?')) {
-        alert('Estado actualizado. (Pendiente de implementar)');
-    }
-}
-
-// Archivos acumulados por grupo de gravedad: { 'leve': [File, ...], 'grave': [...] }
+// Archivos acumulados por subgrupo: { 'sgKey': [File, ...] }
 var archivosAcumulados = {};
 
-function agregarAdjuntos(gravedadId) {
-    var input = document.getElementById('adjuntos-' + gravedadId);
-    if (!archivosAcumulados[gravedadId]) archivosAcumulados[gravedadId] = [];
-
+function agregarAdjuntos(sgKey) {
+    var input = document.getElementById('adjuntos-' + sgKey);
+    if (!archivosAcumulados[sgKey]) archivosAcumulados[sgKey] = [];
     for (var i = 0; i < input.files.length; i++) {
-        archivosAcumulados[gravedadId].push(input.files[i]);
+        archivosAcumulados[sgKey].push(input.files[i]);
     }
-    input.value = ''; // reset para poder volver a seleccionar
-    renderizarAdjuntos(gravedadId);
+    input.value = '';
+    renderizarAdjuntos(sgKey);
 }
 
-function renderizarAdjuntos(gravedadId) {
-    var lista = document.getElementById('lista-adjuntos-' + gravedadId);
-    var archivos = archivosAcumulados[gravedadId] || [];
+function renderizarAdjuntos(sgKey) {
+    var lista   = document.getElementById('lista-adjuntos-' + sgKey);
+    var archivos = archivosAcumulados[sgKey] || [];
     lista.innerHTML = '';
     archivos.forEach(function(f, idx) {
         var badge = document.createElement('span');
@@ -469,41 +771,44 @@ function renderizarAdjuntos(gravedadId) {
         badge.style.fontSize = '.75rem';
         badge.innerHTML = '<i class="bi bi-file-earmark"></i> ' + f.name +
             ' <button type="button" class="btn-close btn-close-sm" style="font-size:.6rem" ' +
-            'onclick="eliminarAdjunto(\'' + gravedadId + '\',' + idx + ')"></button>';
+            'onclick="eliminarAdjunto(\'' + sgKey + '\',' + idx + ')"></button>';
         lista.appendChild(badge);
     });
 }
 
-function eliminarAdjunto(gravedadId, idx) {
-    archivosAcumulados[gravedadId].splice(idx, 1);
-    renderizarAdjuntos(gravedadId);
+function eliminarAdjunto(sgKey, idx) {
+    archivosAcumulados[sgKey].splice(idx, 1);
+    renderizarAdjuntos(sgKey);
 }
 
-function enviarRespuesta(gravedad) {
-    var gravedadId = gravedad.toLowerCase();
-    var textarea   = document.getElementById('texto-email-' + gravedadId);
+function enviarRespuesta(sgKey) {
+    var textarea   = document.getElementById('texto-email-' + sgKey);
     var texto      = textarea.value.trim();
-
     if (!texto) {
         alert('El texto del email no puede estar vacío.');
         return;
     }
 
-    var btnEnviar  = document.getElementById('btn-enviar-' + gravedadId);
-    var spinner    = document.getElementById('spinner-enviar-' + gravedadId);
-    var errorDiv   = document.getElementById('error-enviar-' + gravedadId);
-    var successDiv = document.getElementById('success-enviar-' + gravedadId);
+    var btnEnviar  = document.getElementById('btn-enviar-' + sgKey);
+    var spinner    = document.getElementById('spinner-enviar-' + sgKey);
+    var errorDiv   = document.getElementById('error-enviar-' + sgKey);
+    var successDiv = document.getElementById('success-enviar-' + sgKey);
 
     btnEnviar.disabled = true;
     spinner.classList.remove('d-none');
     errorDiv.classList.add('d-none');
     successDiv.classList.add('d-none');
 
+    var materialIds = Array.from(
+        document.querySelectorAll('.select-causaespecifica[data-sg-key="' + sgKey + '"]')
+    ).map(function(el) { return el.dataset.materialId; });
+
     var formData = new FormData();
     formData.append('texto', texto);
-    (archivosAcumulados[gravedadId] || []).forEach(function(f) {
+    (archivosAcumulados[sgKey] || []).forEach(function(f) {
         formData.append('adjuntos', f);
     });
+    materialIds.forEach(function(id) { formData.append('material_ids[]', id); });
 
     fetch("{% url 'comercial:enviar_respuesta' incidencia.id %}", {
         method: 'POST',
@@ -514,8 +819,185 @@ function enviarRespuesta(gravedad) {
     .then(data => {
         if (data.ok) {
             successDiv.classList.remove('d-none');
-            archivosAcumulados[gravedadId] = [];
-            renderizarAdjuntos(gravedadId);
+            archivosAcumulados[sgKey] = [];
+            renderizarAdjuntos(sgKey);
+            materialIds.forEach(function(id) {
+                var sel = document.querySelector('.select-causaespecifica[data-sg-key="' + sgKey + '"][data-material-id="' + id + '"]');
+                if (sel) {
+                    var fila = sel.closest('tr');
+                    fila.classList.add('respondida');
+                    var td = fila.querySelector('td:first-child');
+                    if (td && !td.querySelector('.badge.bg-success')) {
+                        var badge = document.createElement('span');
+                        badge.className = 'badge bg-success d-block mb-1';
+                        badge.title = 'Ya se ha enviado respuesta para este producto';
+                        badge.innerHTML = '<i class="bi bi-envelope-check-fill"></i> Respondido';
+                        td.insertBefore(badge, td.firstChild);
+                    }
+                }
+            });
+        } else {
+            errorDiv.textContent = data.error || 'Error desconocido.';
+            errorDiv.classList.remove('d-none');
+        }
+    })
+    .catch(() => {
+        errorDiv.textContent = 'Error de conexión.';
+        errorDiv.classList.remove('d-none');
+    })
+    .finally(() => {
+        btnEnviar.disabled = false;
+        spinner.classList.add('d-none');
+    });
+}
+
+// ─── Respuesta individual por producto ───────────────────────────────────────
+
+var _modalRespProd = null;
+var _prodActual    = {};
+var _adjuntosProd  = [];
+
+function abrirResponderProducto(btn, materialId, causaNombre, gravedad) {
+    var fila    = btn.closest('tr');
+    var nombre   = fila.getAttribute('data-nombre')   || '';
+    var problema = fila.getAttribute('data-problema') || '';
+    var cantidad = fila.getAttribute('data-cantidad') || '';
+
+    _prodActual   = { materialId: materialId, nombre: nombre, causaNombre: causaNombre, gravedad: gravedad, problema: problema, cantidad: cantidad };
+    _adjuntosProd = [];
+
+    document.getElementById('modoRespProd-nombre').textContent = nombre;
+    document.getElementById('modoRespProd-textarea').value =
+        'Estimado/a cliente de {{ incidencia.cliente|escapejs }},\n\n'
+        + 'Hemos recibido su incidencia relativa a ' + causaNombre + ' y estamos trabajando en resolverla. '
+        + 'Le mantendremos informado/a a la mayor brevedad posible.\n\n'
+        + 'Disculpe las molestias ocasionadas.';
+    document.getElementById('modoRespProd-lista-adjuntos').innerHTML = '';
+    document.getElementById('modoRespProd-error-tono').classList.add('d-none');
+    document.getElementById('modoRespProd-error-enviar').classList.add('d-none');
+    document.getElementById('modoRespProd-success-enviar').classList.add('d-none');
+    document.getElementById('modoRespProd-adjuntos').value = '';
+
+    if (!_modalRespProd) {
+        _modalRespProd = new bootstrap.Modal(document.getElementById('modalResponderProducto'));
+    }
+    _modalRespProd.show();
+}
+
+function ajustarTonoProducto(tono) {
+    var textarea = document.getElementById('modoRespProd-textarea');
+    var texto    = textarea.value.trim();
+    if (!texto) return;
+
+    var btnAm    = document.getElementById('modoRespProd-btn-amigable');
+    var btnSer   = document.getElementById('modoRespProd-btn-serio');
+    var spinner  = document.getElementById('modoRespProd-spinner-tono');
+    var errorDiv = document.getElementById('modoRespProd-error-tono');
+
+    btnAm.disabled = btnSer.disabled = true;
+    spinner.classList.remove('d-none');
+    errorDiv.classList.add('d-none');
+
+    fetch("{% url 'comercial:ajustar_tono' %}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify({
+            texto:    texto,
+            tono:     tono,
+            cliente:  '{{ incidencia.cliente|escapejs }}',
+            idioma:   '{{ incidencia.idioma|escapejs }}',
+            gravedad: _prodActual.gravedad,
+            causas:   [{ nombre: _prodActual.causaNombre, productos: [{ nombre: _prodActual.nombre, cantidad: _prodActual.cantidad, problema: _prodActual.problema }] }],
+        }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.texto) {
+            textarea.value = data.texto;
+        } else {
+            errorDiv.textContent = data.error || 'Error desconocido.';
+            errorDiv.classList.remove('d-none');
+        }
+    })
+    .catch(() => {
+        errorDiv.textContent = 'Error de conexión.';
+        errorDiv.classList.remove('d-none');
+    })
+    .finally(() => {
+        btnAm.disabled = btnSer.disabled = false;
+        spinner.classList.add('d-none');
+    });
+}
+
+function agregarAdjuntosProducto() {
+    var input = document.getElementById('modoRespProd-adjuntos');
+    Array.from(input.files).forEach(function(f) { _adjuntosProd.push(f); });
+    renderizarAdjuntosProducto();
+    input.value = '';
+}
+
+function eliminarAdjuntoProducto(idx) {
+    _adjuntosProd.splice(idx, 1);
+    renderizarAdjuntosProducto();
+}
+
+function renderizarAdjuntosProducto() {
+    var lista = document.getElementById('modoRespProd-lista-adjuntos');
+    lista.innerHTML = '';
+    _adjuntosProd.forEach(function(f, idx) {
+        var badge = document.createElement('span');
+        badge.className = 'badge bg-secondary d-flex align-items-center gap-1';
+        badge.style.fontSize = '.75rem';
+        badge.innerHTML = '<i class="bi bi-file-earmark"></i> ' + f.name
+            + ' <button type="button" class="btn-close btn-close-sm" style="font-size:.6rem"'
+            + ' onclick="eliminarAdjuntoProducto(' + idx + ')"></button>';
+        lista.appendChild(badge);
+    });
+}
+
+function enviarRespuestaProducto() {
+    var texto = document.getElementById('modoRespProd-textarea').value.trim();
+    if (!texto) { alert('El texto del email no puede estar vacío.'); return; }
+
+    var btnEnviar  = document.getElementById('modoRespProd-btn-enviar');
+    var spinner    = document.getElementById('modoRespProd-spinner-enviar');
+    var errorDiv   = document.getElementById('modoRespProd-error-enviar');
+    var successDiv = document.getElementById('modoRespProd-success-enviar');
+
+    btnEnviar.disabled = true;
+    spinner.classList.remove('d-none');
+    errorDiv.classList.add('d-none');
+    successDiv.classList.add('d-none');
+
+    var formData = new FormData();
+    formData.append('texto', texto);
+    _adjuntosProd.forEach(function(f) { formData.append('adjuntos', f); });
+    formData.append('material_ids[]', _prodActual.materialId);
+
+    fetch("{% url 'comercial:enviar_respuesta' incidencia.id %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        body: formData,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            successDiv.classList.remove('d-none');
+            _adjuntosProd = [];
+            renderizarAdjuntosProducto();
+            var sel = document.querySelector('.select-causaespecifica[data-material-id="' + _prodActual.materialId + '"]');
+            if (sel) {
+                var fila = sel.closest('tr');
+                fila.classList.add('respondida');
+                var td = fila.querySelector('td:first-child');
+                if (td && !td.querySelector('.badge.bg-success')) {
+                    var badge = document.createElement('span');
+                    badge.className = 'badge bg-success d-block mb-1';
+                    badge.title = 'Ya se ha enviado respuesta para este producto';
+                    badge.innerHTML = '<i class="bi bi-envelope-check-fill"></i> Respondido';
+                    td.insertBefore(badge, td.firstChild);
+                }
+            }
         } else {
             errorDiv.textContent = data.error || 'Error desconocido.';
             errorDiv.classList.remove('d-none');

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Portal Comercial{% endblock %} — Grupo Fuertes</title>
+    <title>{% block title %}Portal Calidad{% endblock %} — Grupo Fuertes</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
@@ -27,7 +27,7 @@
 <div id="sidebar-overlay"></div>
 
 <nav id="sidebar">
-    <a class="sidebar__logo" href="{% url 'comercial:dashboard' %}">
+    <a class="sidebar__logo" href="{% url 'calidad:dashboard' %}">
         <img src="{% static 'comercial/img/logo-blanco.png' %}" alt="Grupo Fuertes">
     </a>
 
@@ -37,15 +37,15 @@
     </div>
 
     <div class="sidebar__nav">
-        <a href="{% url 'comercial:dashboard' %}"
-           class="sidebar-option {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-            <i class="bi bi-grid-1x2-fill"></i>
-            <span>Incidencias</span>
-        </a>
         <a href="{% url 'calidad:dashboard' %}"
-           class="sidebar-option">
+           class="sidebar-option {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
             <i class="bi bi-shield-check"></i>
-            <span>Portal Calidad</span>
+            <span>Incidencias Calidad</span>
+        </a>
+        <a href="{% url 'comercial:dashboard' %}"
+           class="sidebar-option">
+            <i class="bi bi-grid-1x2"></i>
+            <span>Portal Comercial</span>
         </a>
     </div>
 
@@ -95,7 +95,6 @@
     toggle.addEventListener('click', openMenu);
     overlay.addEventListener('click', closeMenu);
 
-    // Cerrar al pulsar un enlace del sidebar en móvil
     sidebar.querySelectorAll('a').forEach(function (a) {
         a.addEventListener('click', closeMenu);
     });
